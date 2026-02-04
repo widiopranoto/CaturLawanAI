@@ -295,17 +295,17 @@
         </div>
     </div>
     
-    <!-- Audio Elements (Using Online Sources from Lichess) -->
+    <!-- Audio Elements (Local Files) -->
     <!-- Start: Game Start -->
-    <audio id="sndStart" src="https://raw.githubusercontent.com/lichess-org/lila/master/public/sound/standard/GenericNotify.mp3"></audio>
+    <audio id="sndStart" src="sounds/start.wav"></audio>
     <!-- On: Normal Move -->
-    <audio id="sndOn" src="https://raw.githubusercontent.com/lichess-org/lila/master/public/sound/standard/Move.mp3"></audio>
+    <audio id="sndOn" src="sounds/on.wav"></audio>
     <!-- Alert: Threat/Check -->
-    <audio id="sndAlert" src="https://raw.githubusercontent.com/lichess-org/lila/master/public/sound/standard/LowTime.mp3"></audio>
+    <audio id="sndAlert" src="sounds/alert.wav"></audio>
     <!-- Boom: Capture -->
-    <audio id="sndBoom" src="https://raw.githubusercontent.com/lichess-org/lila/master/public/sound/standard/Capture.mp3"></audio>
+    <audio id="sndBoom" src="sounds/boom.wav"></audio>
     <!-- End: Checkmate/Game Over -->
-    <audio id="sndEnd" src="https://raw.githubusercontent.com/lichess-org/lila/master/public/sound/standard/GenericNotify.mp3"></audio>
+    <audio id="sndEnd" src="sounds/end.wav"></audio>
 
     <script>
         // --- Globals ---
@@ -396,7 +396,7 @@
                 if (line.indexOf('bestmove') > -1) {
                     if (isAnalyzing) {
                         isAnalyzing = false;
-                        $('#btnAskHint').prop('disabled', false).text('💡 Minta Saran (3 Langkah)');
+                        $('#btnAskHint').prop('disabled', false).text('💡 Minta Saran (3 Opsi)');
                         stockfish.postMessage('setoption name MultiPV value 1');
                         return;
                     }
@@ -493,8 +493,7 @@
             removeHighlights('highlight-legal');
             var moves = game.moves({ square: source, verbose: true });
             
-            // Wait slightly for drag to start before adding highlights, otherwise they might be cleared?
-            // Or simply add them. 
+            // Wait slightly for drag to start before adding highlights
             for (var i = 0; i < moves.length; i++) {
                 highlightSquare(moves[i].to, 'highlight-legal');
             }
@@ -502,12 +501,6 @@
             return true;
         }
         
-        // Add click handler to support tap/click highlighting (mobile friendly or better UX)
-        function onMouseoverSquare (square, piece) {
-            // Optional: highlight on hover?
-            // For now, onDragStart handles drag highlights.
-        }
-
         function onDrop (source, target) {
             removeHighlights('highlight-legal');
 
@@ -582,9 +575,7 @@
             // Simplified "Direct Threat" from Last Move
             var opponentColor = (playerColor === 'w') ? 'b' : 'w';
             
-            // Hacky but effective: Check if any of MY pieces are attacked
-            // by simulating opponent moves from current position
-            
+            // Check if any of MY pieces are attacked by simulating opponent moves
             var currentFen = game.fen();
             var tokens = currentFen.split(' ');
             tokens[1] = (tokens[1] === 'w') ? 'b' : 'w'; // Swap active color
