@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Catur vs AI</title>
+    
+    <!-- Dependencies -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        #board {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        label {
+            font-size: 0.9em;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+
+        select, input, button {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+            align-self: flex-end;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .status-panel {
+            text-align: center;
+            width: 100%;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+        }
+
+        .elo-display {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .game-status {
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                flex-direction: row;
+                align-items: flex-start;
+                max-width: 900px;
+            }
+            
+            .sidebar {
+                width: 300px;
+                flex-shrink: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Catur vs AI</h1>
+
+    <div class="container">
+        <div id="board"></div>
+
+        <div class="sidebar" style="display: flex; flex-direction: column; gap: 20px;">
+            
+            <div class="status-panel">
+                <div>Rating Anda (ELO): <span id="playerElo" class="elo-display">Loading...</span></div>
+                <div id="gameStatus" class="game-status">Menunggu permainan dimulai...</div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label for="aiDifficulty">Tingkat Kesulitan (AI ELO)</label>
+                    <input type="number" id="aiDifficulty" value="1200" min="400" max="3000" step="50">
+                </div>
+
+                <div class="control-group">
+                    <label for="playerColor">Pilih Warna</label>
+                    <select id="playerColor">
+                        <option value="white">Putih (Jalan Duluan)</option>
+                        <option value="black">Hitam</option>
+                        <option value="random">Acak</option>
+                    </select>
+                </div>
+
+                <button id="startBtn">Mulai Game Baru</button>
+            </div>
+            
+            <div style="font-size: 0.9em; color: #666;">
+                <p><strong>Cara Main:</strong></p>
+                <ul>
+                    <li>Drag & drop bidak untuk melangkah.</li>
+                    <li>Aturan catur standar berlaku.</li>
+                    <li>Menang lawan AI rating tinggi = poin naik banyak!</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Configuration & State ---
+        var board = null;
+        var game = new Chess();
+        var $status = $('#gameStatus');
+        var $fen = $('#fen');
+        var $pgn = $('#pgn');
+        var playerColor = 'w'; // 'w' or 'b'
+        var stockfish = null;
+        var stockfishLevel = 10;
+        var gameActive = false;
+
+        // --- Stockfish Initialization ---
+        function initStockfish() {
+            // workaround for cross-origin worker
+            var stockfishUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js';
+            var blob = new Blob(["importScripts('" + stockfishUrl + "');"], {type: 'application/javascript'});
+            stockfish = new Worker(window.URL.createObjectURL(blob));
+
+            stockfish.onmessage = function(event) {
+                var line = event.data;
+                // console.log('SF: ' + line); // Debug
+
+                if (line === 'uciok') {
+                    // Stockfish is ready
+                } else if (line.indexOf('bestmove') > -1) {
+                    var match = line.match(/^bestmove ([a-h][1-8])([a-h][1-8])([qrbn])?/);
+                    if (match) {
+                        var from = match[1];
+                        var to = match[2];
+                        var promotion = match[3];
+                        
+                        game.move({
+                            from: from,
+                            to: to,
+                            promotion: promotion || 'q'
+                        });
+                        
+                        board.position(game.fen());
+                        updateStatus();
+                        
+                        // Check if game over after AI move
+                        if (game.game_over()) {
+                            handleGameOver();
+                        }
+                    }
+                }
+            };
+            
+            stockfish.postMessage('uci');
+        }
+
+        initStockfish();
+
+        // --- AI Logic ---
+        function makeAIMove() {
+            if (game.game_over()) return;
+            
+            var turn = game.turn(); // 'w' or 'b'
+            var aiColor = (playerColor === 'w') ? 'b' : 'w';
+
+            // Only move if it's AI's turn
+            if (turn === aiColor) {
+                var fen = game.fen();
+                // Configure difficulty (Skill Level 0-20)
+                // Mapping input ELO (400-3000) to Skill Level (0-20) roughly
+                // 400 -> 0, 3000 -> 20.
+                var elo = parseInt($('#aiDifficulty').val());
+                var skillLevel = Math.floor((elo - 400) / (2600 / 20));
+                if (skillLevel < 0) skillLevel = 0;
+                if (skillLevel > 20) skillLevel = 20;
+
+                stockfish.postMessage('setoption name Skill Level value ' + skillLevel);
+                stockfish.postMessage('position fen ' + fen);
+                stockfish.postMessage('go depth 15'); // Fixed depth for consistent timing, skill level handles quality
+            }
+        }
+
+        // --- Board Logic ---
+        function onDragStart (source, piece, position, orientation) {
+            // Do not pick up pieces if the game is over
+            if (game.game_over() || !gameActive) return false;
+
+            // Only pick up pieces for the side to move
+            if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+            
+            // Only allow player to move their own pieces
+            if ((playerColor === 'w' && piece.search(/^b/) !== -1) ||
+                (playerColor === 'b' && piece.search(/^w/) !== -1)) {
+                 return false;
+            }
+        }
+
+        function onDrop (source, target) {
+            // see if the move is legal
+            var move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q' // NOTE: always promote to a queen for simplicity
+            });
+
+            // illegal move
+            if (move === null) return 'snapback';
+
+            updateStatus();
+            
+            // Trigger AI Move
+            if (!game.game_over()) {
+                window.setTimeout(makeAIMove, 250);
+            } else {
+                handleGameOver();
+            }
+        }
+
+        // update the board position after the piece snap
+        // for castling, en passant, pawn promotion
+        function onSnapEnd () {
+            board.position(game.fen());
+        }
+
+        function updateStatus () {
+            var status = '';
+
+            var moveColor = 'Putih';
+            if (game.turn() === 'b') {
+                moveColor = 'Hitam';
+            }
+
+            // checkmate?
+            if (game.in_checkmate()) {
+                status = 'Game Over, ' + moveColor + ' terkena skakmat.';
+            }
+
+            // draw?
+            else if (game.in_draw()) {
+                status = 'Game Over, Remis (Draw).';
+            }
+
+            // game still on
+            else {
+                status = 'Giliran ' + moveColor + ' melangkah';
+
+                // check?
+                if (game.in_check()) {
+                    status += ', ' + moveColor + ' sedang di-skak!';
+                }
+            }
+
+            $status.html(status);
+        }
+
+        var config = {
+            draggable: true,
+            position: 'start',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd,
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+        }
+        
+        // Initialize board
+        board = Chessboard('board', config);
+        
+        // Force resize after render to ensure correct sizing in flex container
+        setTimeout(board.resize, 200);
+
+        updateStatus();
+
+        // Handle Resize
+        $(window).resize(board.resize);
+
+        // --- Game Flow & ELO System ---
+        
+        // ELO Logic
+        function getPlayerElo() {
+            var stored = localStorage.getItem('chessPlayerElo');
+            return stored ? parseInt(stored) : 800;
+        }
+
+        function setPlayerElo(newElo) {
+            localStorage.setItem('chessPlayerElo', Math.round(newElo));
+            updateEloDisplay();
+        }
+
+        function updateEloDisplay() {
+            $('#playerElo').text(getPlayerElo());
+        }
+
+        function calculateEloChange(playerElo, opponentElo, result) {
+            // K-factor: 32 for lower ratings (<2100) is standard
+            var K = 32; 
+            
+            // Expected score
+            var expectedScore = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
+            
+            // New Rating
+            var change = K * (result - expectedScore);
+            return change;
+        }
+
+        function handleGameOver() {
+            gameActive = false;
+            var playerElo = getPlayerElo();
+            var aiElo = parseInt($('#aiDifficulty').val());
+            var resultScore = 0.5; // Draw default
+            var resultText = "Remis.";
+
+            if (game.in_checkmate()) {
+                // If it's white's turn and white is in checkmate, white lost.
+                // If player is white -> player lost.
+                var loserColor = game.turn(); // 'w' or 'b'
+                
+                if (loserColor === playerColor) {
+                    resultScore = 0;
+                    resultText = "Anda Kalah!";
+                } else {
+                    resultScore = 1;
+                    resultText = "Anda Menang!";
+                }
+            } else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
+                resultScore = 0.5;
+                resultText = "Remis (Draw).";
+            }
+
+            var eloChange = calculateEloChange(playerElo, aiElo, resultScore);
+            var newElo = playerElo + eloChange;
+            setPlayerElo(newElo);
+
+            $status.html("<strong>GAME OVER:</strong> " + resultText + " Rating Anda: " + Math.round(newElo) + " (" + (eloChange >= 0 ? "+" : "") + Math.round(eloChange) + ")");
+            alert("Permainan Selesai!\n" + resultText + "\nRating Baru: " + Math.round(newElo));
+        }
+
+        // Start Game Logic
+        $('#startBtn').on('click', function() {
+            var colorSelection = $('#playerColor').val();
+            
+            // Determine Color
+            if (colorSelection === 'random') {
+                playerColor = Math.random() < 0.5 ? 'w' : 'b';
+            } else {
+                playerColor = (colorSelection === 'white') ? 'w' : 'b';
+            }
+
+            // Reset Game
+            game.reset();
+            board.orientation(playerColor === 'w' ? 'white' : 'black');
+            board.position('start');
+            gameActive = true;
+            
+            updateStatus();
+            $status.html("Permainan dimulai! Anda bermain sebagai: " + (playerColor === 'w' ? 'Putih' : 'Hitam'));
+
+            // If player is black, AI (White) moves first
+            if (playerColor === 'b') {
+                window.setTimeout(makeAIMove, 500);
+            }
+        });
+
+        // Initialize Display
+        updateEloDisplay();
+        console.log("Game Ready.");
+    </script>
+</body>
+</html>
