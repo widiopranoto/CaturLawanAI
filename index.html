@@ -45,6 +45,27 @@
             max-width: 400px;
         }
 
+        /* Captured Pieces Styles */
+        .captured-pieces {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            height: 30px;
+            width: 100%;
+            max-width: 400px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            margin-top: 5px;
+            padding: 2px;
+            align-items: center;
+        }
+        .captured-pieces img {
+            width: 25px;
+            height: 25px;
+            margin-right: 2px;
+        }
+
         .controls {
             display: flex;
             flex-wrap: wrap;
@@ -240,7 +261,11 @@
 
     <div class="container">
         <div class="board-container">
+            <!-- Top Panel: Captured by Opponent (White pieces captured by Black) -->
+            <div id="capturedTop" class="captured-pieces"></div>
             <div id="board"></div>
+            <!-- Bottom Panel: Captured by Player (Black pieces captured by White) -->
+            <div id="capturedBottom" class="captured-pieces"></div>
         </div>
 
         <div class="sidebar-right">
@@ -281,7 +306,7 @@
             </div>
 
             <div id="advisorPanel" class="hint-box" style="display:none;">
-                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Minta Saran (3 Opsi)</button>
+                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Minta Saran (3 Langkah)</button>
                 <div id="hintList" style="margin-top:5px; font-weight:bold;"></div>
             </div>
             
@@ -420,6 +445,7 @@
                                 handleMoveSound(move);
 
                                 updateStatus();
+                                updateCapturedPieces(); // Update captured pieces after AI move
                                 
                                 if (game.game_over()) handleGameOver();
                             }
@@ -516,6 +542,7 @@
             handleMoveSound(move);
 
             updateStatus();
+            updateCapturedPieces(); // Update captured pieces after player move
             
             if (!game.game_over()) {
                 window.setTimeout(makeAIMove, 250);
@@ -548,6 +575,47 @@
 
         function onSnapEnd () {
             board.position(game.fen());
+            updateCapturedPieces();
+        }
+
+        // --- Captured Pieces Logic ---
+        function updateCapturedPieces() {
+            var history = game.history({ verbose: true });
+            // Calculate captured pieces based on history captures
+            
+            var capturedByWhite = []; // Black pieces
+            var capturedByBlack = []; // White pieces
+            
+            for (var i=0; i<history.length; i++) {
+                var m = history[i];
+                if (m.flags.includes('c') || m.flags.includes('e')) {
+                    var capturedPiece = m.captured; // 'p', 'n', etc.
+                    // If White moved, they captured Black
+                    if (m.color === 'w') {
+                        capturedByWhite.push(capturedPiece); 
+                    } else {
+                        capturedByBlack.push(capturedPiece);
+                    }
+                }
+            }
+            
+            renderCaptured('#capturedTop', capturedByBlack, 'w'); // Top shows White pieces lost
+            renderCaptured('#capturedBottom', capturedByWhite, 'b'); // Bottom shows Black pieces lost
+        }
+        
+        function renderCaptured(selector, pieces, colorPrefix) {
+            var $container = $(selector);
+            $container.empty();
+            // Sort pieces: q, r, b, n, p
+            var order = ['q','r','b','n','p'];
+            pieces.sort(function(a,b) {
+                return order.indexOf(a) - order.indexOf(b);
+            });
+            
+            pieces.forEach(function(p) {
+                var imgUrl = 'https://chessboardjs.com/img/chesspieces/wikipedia/' + colorPrefix + p.toUpperCase() + '.png';
+                $container.append('<img src="' + imgUrl + '">');
+            });
         }
 
         // --- Advisor & Analysis ---
@@ -714,7 +782,7 @@
             var resultText = "Remis.";
 
             if (game.in_checkmate()) {
-                var loserColor = game.turn();
+                var loserColor = game.turn(); // 'w' or 'b'
                 if (loserColor === playerColor) {
                     resultScore = 0;
                     resultText = "Anda Kalah!";
