@@ -276,11 +276,13 @@
             </div>
 
             <div id="threatAlert" class="alert-box">
-                <strong>⚠️ PERINGATAN:</strong> <span id="threatMsg"></span>
+                <strong>⚠️ PERINGATAN:</strong>
+                <ul id="threatList" style="margin: 5px 0; padding-left: 20px;"></ul>
             </div>
 
-            <div id="hintContainer" class="hint-box">
-                <strong>💡 Saran:</strong> <span id="hintMsg"></span>
+            <div id="advisorPanel" class="hint-box" style="display:none;">
+                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Minta Saran (3 Langkah)</button>
+                <div id="hintList" style="margin-top:5px; font-weight:bold;"></div>
             </div>
             
             <div style="font-size: 0.9em; color: #666; margin-top: auto;">
@@ -345,6 +347,8 @@
         }
 
         // --- Stockfish ---
+        var isAnalyzing = false; // Flag to differentiate AI Move vs Hint Analysis
+
         function initStockfish() {
             var stockfishUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js';
             var blob = new Blob(["importScripts('" + stockfishUrl + "');"], {type: 'application/javascript'});
@@ -353,7 +357,35 @@
             stockfish.onmessage = function(event) {
                 var line = event.data;
                 
+                // Handle Analysis (Hints)
+                if (isAnalyzing && line.indexOf('pv') > -1 && line.indexOf('info') > -1) {
+                    var multipvMatch = line.match(/multipv (\d+)/);
+                    var pvMatch = line.match(/ pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
+                    
+                    if (multipvMatch && pvMatch) {
+                        var rank = parseInt(multipvMatch[1]);
+                        var bestMove = pvMatch[1];
+                        var formattedMove = formatMove(bestMove);
+                        
+                        var $list = $('#hintList');
+                        var $item = $list.find('#hint-' + rank);
+                        if ($item.length === 0) {
+                            $list.append('<div id="hint-' + rank + '">' + rank + '. ' + formattedMove + '</div>');
+                        } else {
+                            $item.text(rank + '. ' + formattedMove);
+                        }
+                    }
+                }
+
                 if (line.indexOf('bestmove') > -1) {
+                    if (isAnalyzing) {
+                        isAnalyzing = false;
+                        $('#btnAskHint').prop('disabled', false).text('💡 Minta Saran (3 Langkah)');
+                        stockfish.postMessage('setoption name MultiPV value 1');
+                        return;
+                    }
+
+                    // Logic AI Main
                     var turn = game.turn();
                     var aiColor = (playerColor === 'w') ? 'b' : 'w';
                     
@@ -385,15 +417,46 @@
         function makeAIMove() {
             if (game.game_over() || !gameActive) return;
             
+            isAnalyzing = false;
             var fen = game.fen();
             var elo = parseInt($('#aiDifficulty').val());
             var skillLevel = Math.floor((elo - 400) / (2600 / 20));
             if (skillLevel < 0) skillLevel = 0; 
             if (skillLevel > 20) skillLevel = 20;
 
+            stockfish.postMessage('stop'); // Stop any analysis
             stockfish.postMessage('setoption name Skill Level value ' + skillLevel);
+            stockfish.postMessage('setoption name MultiPV value 1'); // Ensure single line
             stockfish.postMessage('position fen ' + fen);
             stockfish.postMessage('go depth 15');
+        }
+
+        // --- Hint Logic ---
+        $('#btnAskHint').on('click', function() {
+            if (isAnalyzing) return;
+            
+            var turn = game.turn();
+            if (turn !== (playerColor === 'w' ? 'w' : 'b')) return;
+
+            isAnalyzing = true;
+            $('#btnAskHint').prop('disabled', true).text('Sedang berpikir...');
+            $('#hintList').empty();
+
+            var fen = game.fen();
+            
+            stockfish.postMessage('stop');
+            stockfish.postMessage('setoption name Skill Level value 20');
+            stockfish.postMessage('setoption name MultiPV value 3'); // Top 3 moves
+            stockfish.postMessage('position fen ' + fen);
+            stockfish.postMessage('go depth 12');
+        });
+
+        function formatMove(uciMove) {
+            var from = uciMove.substring(0,2);
+            var to = uciMove.substring(2,4);
+            var tempGame = new Chess(game.fen());
+            var move = tempGame.move({from: from, to: to, promotion: 'q'});
+            return move ? move.san : uciMove;
         }
 
         // --- Board Logic ---
@@ -449,23 +512,64 @@
         // --- Advisor & Analysis ---
         function runAdvisor() {
             if (!useAdvisor) {
-                $('#hintContainer').hide();
+                $('#advisorPanel').hide();
                 $('#threatAlert').hide();
                 return;
             }
 
+            // Show Ask Button
+            if (game.turn() === (playerColor === 'w' ? 'w' : 'b')) {
+                $('#advisorPanel').show();
+                $('#hintList').empty(); // Clear previous hints until asked
+            } else {
+                $('#advisorPanel').hide();
+            }
+
+            // --- Threat Detection ---
+            var threats = [];
             if (game.in_check()) {
+                threats.push("Raja Anda sedang diserang (Skak)!");
+            }
+
+            // Simplified "Direct Threat" from Last Move
+            var opponentColor = (playerColor === 'w') ? 'b' : 'w';
+            
+            // Hacky but effective: Check if any of MY pieces are attacked
+            // by simulating opponent moves from current position
+            
+            var currentFen = game.fen();
+            var tokens = currentFen.split(' ');
+            tokens[1] = (tokens[1] === 'w') ? 'b' : 'w'; // Swap active color
+            var tempFen = tokens.join(' ');
+            
+            var tempGame = new Chess(tempFen);
+            var opponentMoves = tempGame.moves({ verbose: true });
+            
+            for (var i=0; i<opponentMoves.length; i++) {
+                var m = opponentMoves[i];
+                if (m.flags.includes('c') || m.flags.includes('e')) {
+                     var pieceName = getPieceName(m.captured || 'p'); // captured piece
+                     var attackerName = getPieceName(m.piece);
+                     var threatText = attackerName + " (" + m.from + ") mengancam " + pieceName + " di " + m.to;
+                     
+                     if (!threats.includes(threatText)) threats.push(threatText);
+                }
+            }
+            
+            if (threats.length > 0) {
                 $('#threatAlert').show();
-                $('#threatMsg').text("Raja Anda sedang diserang (Skak)!");
+                $('#threatList').empty();
+                threats.forEach(function(t) {
+                   $('#threatList').append('<li>' + t + '</li>'); 
+                });
             } else {
                 $('#threatAlert').hide();
             }
-
-            if (game.turn() === (playerColor === 'w' ? 'w' : 'b')) {
-                var moves = game.moves();
-                $('#hintContainer').show();
-                $('#hintMsg').text("Anda memiliki " + moves.length + " pilihan langkah.");
-            }
+        }
+        
+        function getPieceName(char) {
+            var names = { 'p': 'Pion', 'n': 'Kuda', 'b': 'Gajah', 'r': 'Benteng', 'q': 'Menteri', 'k': 'Raja' };
+            return names[char.toLowerCase()] || char;
         }
 
         function updateStatus () {
@@ -647,7 +751,8 @@
             
             $('#pgnContainer').empty();
             $('#threatAlert').hide();
-            $('#hintContainer').hide();
+            $('#hintList').empty();
+            $('#advisorPanel').hide();
             removeHighlights('highlight-last');
             removeHighlights('highlight-legal');
             
