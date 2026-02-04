@@ -295,10 +295,17 @@
         </div>
     </div>
     
-    <!-- Audio Elements -->
-    <audio id="sndMove" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/move-self.mp3"></audio>
-    <audio id="sndCapture" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/capture.mp3"></audio>
-    <audio id="sndNotify" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/notify.mp3"></audio>
+    <!-- Audio Elements (Using Online Sources for Simplicity) -->
+    <!-- Start: Game Start -->
+    <audio id="sndStart" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/game-start.mp3"></audio>
+    <!-- On: Normal Move -->
+    <audio id="sndOn" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/move-self.mp3"></audio>
+    <!-- Alert: Threat/Check -->
+    <audio id="sndAlert" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/move-check.mp3"></audio>
+    <!-- Boom: Capture -->
+    <audio id="sndBoom" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/capture.mp3"></audio>
+    <!-- End: Checkmate/Game Over -->
+    <audio id="sndEnd" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/game-end.mp3"></audio>
 
     <script>
         // --- Globals ---
@@ -314,15 +321,24 @@
         var currentElo = 800;
         var useAdvisor = false;
 
-        // APPS SCRIPT URL - GANTI INI DENGAN URL WEB APP ANDA
+        // APPS SCRIPT URL
         var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBIJBWZ0iPlHE5qkO8f1YDmAwnpqrE7knm9n6LHT_7hGGDXFxOyDg_vpM4VpjT3tiu/exec';
 
-        // --- Audio ---
+        // --- Audio Logic ---
         function playSound(type) {
             try {
-                if (type === 'move') document.getElementById('sndMove').play();
-                else if (type === 'capture') document.getElementById('sndCapture').play();
-                else if (type === 'notify') document.getElementById('sndNotify').play();
+                var audio = null;
+                switch(type) {
+                    case 'start': audio = document.getElementById('sndStart'); break;
+                    case 'on': audio = document.getElementById('sndOn'); break;
+                    case 'alert': audio = document.getElementById('sndAlert'); break;
+                    case 'boom': audio = document.getElementById('sndBoom'); break;
+                    case 'end': audio = document.getElementById('sndEnd'); break;
+                }
+                if (audio) {
+                    audio.currentTime = 0;
+                    audio.play().catch(e => console.log("Audio autoplay blocked:", e));
+                }
             } catch(e) { console.log('Audio error', e); }
         }
 
@@ -365,8 +381,11 @@
                     if (multipvMatch && pvMatch) {
                         var rank = parseInt(multipvMatch[1]);
                         var bestMove = pvMatch[1];
+                        
+                        // Convert uci move to readable (e.g. e2e4 -> Pion ke e4)
                         var formattedMove = formatMove(bestMove);
                         
+                        // Update UI
                         var $list = $('#hintList');
                         var $item = $list.find('#hint-' + rank);
                         if ($item.length === 0) {
@@ -380,7 +399,8 @@
                 if (line.indexOf('bestmove') > -1) {
                     if (isAnalyzing) {
                         isAnalyzing = false;
-                        $('#btnAskHint').prop('disabled', false).text('💡 Minta Saran (3 Langkah)');
+                        $('#btnAskHint').prop('disabled', false).text('💡 Minta Saran (3 Opsi Langkah)');
+                        // Reset options
                         stockfish.postMessage('setoption name MultiPV value 1');
                         return;
                     }
@@ -399,8 +419,10 @@
                             var move = game.move({ from: from, to: to, promotion: promotion || 'q' });
                             if (move) {
                                 board.position(game.fen());
-                                var isCapture = move.flags.includes('c') || move.flags.includes('e');
-                                playSound(isCapture ? 'capture' : 'move');
+                                
+                                // Sound Logic
+                                handleMoveSound(move);
+
                                 updateStatus();
                                 
                                 if (game.game_over()) handleGameOver();
@@ -436,6 +458,7 @@
             if (isAnalyzing) return;
             
             var turn = game.turn();
+            // Ensure it is player's turn
             if (turn !== (playerColor === 'w' ? 'w' : 'b')) return;
 
             isAnalyzing = true;
@@ -448,12 +471,14 @@
             stockfish.postMessage('setoption name Skill Level value 20');
             stockfish.postMessage('setoption name MultiPV value 3'); // Top 3 moves
             stockfish.postMessage('position fen ' + fen);
-            stockfish.postMessage('go depth 12');
+            stockfish.postMessage('go depth 12'); // Moderate depth
         });
 
         function formatMove(uciMove) {
             var from = uciMove.substring(0,2);
             var to = uciMove.substring(2,4);
+            // Simple mapping. Ideally use chess.js to get SAN but that requires making the move.
+            // Let's try to make temp move to get SAN
             var tempGame = new Chess(game.fen());
             var move = tempGame.move({from: from, to: to, promotion: 'q'});
             return move ? move.san : uciMove;
@@ -475,6 +500,8 @@
             removeHighlights('highlight-legal');
             var moves = game.moves({ square: source, verbose: true });
             
+            // Wait slightly for drag to start before adding highlights, otherwise they might be cleared?
+            // Or simply add them. 
             for (var i = 0; i < moves.length; i++) {
                 highlightSquare(moves[i].to, 'highlight-legal');
             }
@@ -482,6 +509,12 @@
             return true;
         }
         
+        // Add click handler to support tap/click highlighting (mobile friendly or better UX)
+        function onMouseoverSquare (square, piece) {
+            // Optional: highlight on hover?
+            // For now, onDragStart handles drag highlights.
+        }
+
         function onDrop (source, target) {
             removeHighlights('highlight-legal');
 
@@ -493,8 +526,8 @@
 
             if (move === null) return 'snapback';
 
-            var isCapture = move.flags.includes('c') || move.flags.includes('e');
-            playSound(isCapture ? 'capture' : 'move');
+            // Sound Logic
+            handleMoveSound(move);
 
             updateStatus();
             
@@ -502,6 +535,38 @@
                 window.setTimeout(makeAIMove, 250);
             } else {
                 handleGameOver();
+            }
+        }
+
+        // --- Sound Helper ---
+        function handleMoveSound(move) {
+            if (game.game_over()) {
+                // Should be handled in handleGameOver? 
+                // Wait, handleGameOver calls playSound? No it didn't before.
+                // Let's rely on game over trigger.
+                return; 
+            }
+            
+            var isCapture = move.flags.includes('c') || move.flags.includes('e');
+            
+            // Check Threat
+            var isThreatening = false;
+            // Only check threat if it's not a capture (because capture has own sound)
+            // OR priority: Checkmate > Capture > Threat > Normal
+            // Actually request was:
+            // 2) Normal: "on"
+            // 3) Threatening: "alert"
+            // 3) Capture: "boom"
+            // 4) Checkmate: "end"
+            
+            if (game.in_checkmate()) {
+                // Handled in updateStatus/handleGameOver
+            } else if (isCapture) {
+                playSound('boom');
+            } else if (game.in_check()) {
+                playSound('alert');
+            } else {
+                playSound('on');
             }
         }
 
@@ -531,22 +596,28 @@
                 threats.push("Raja Anda sedang diserang (Skak)!");
             }
 
-            // Simplified "Direct Threat" from Last Move
+            // Simplified "Direct Threat" from Last Move using Chess.js logic
             var opponentColor = (playerColor === 'w') ? 'b' : 'w';
             
-            // Hacky but effective: Check if any of MY pieces are attacked
-            // by simulating opponent moves from current position
+            // Generate valid moves for opponent from current position?
+            // No, it's MY turn. To see what opponent attacks, we check their moves as if it were their turn
+            // OR simply check if any of my pieces are under attack.
             
+            // Hacky but effective in JS without engine:
+            // 1. Swap turn to Opponent
             var currentFen = game.fen();
             var tokens = currentFen.split(' ');
             tokens[1] = (tokens[1] === 'w') ? 'b' : 'w'; // Swap active color
+            // Strip en passant if not valid? Keep it simple.
             var tempFen = tokens.join(' ');
             
             var tempGame = new Chess(tempFen);
             var opponentMoves = tempGame.moves({ verbose: true });
             
+            // Map of squares attacked by opponent
             for (var i=0; i<opponentMoves.length; i++) {
                 var m = opponentMoves[i];
+                // If move captures something, it means a piece is under attack!
                 if (m.flags.includes('c') || m.flags.includes('e')) {
                      var pieceName = getPieceName(m.captured || 'p'); // captured piece
                      var attackerName = getPieceName(m.piece);
@@ -556,6 +627,7 @@
                 }
             }
             
+            // Display Threats
             if (threats.length > 0) {
                 $('#threatAlert').show();
                 $('#threatList').empty();
@@ -568,7 +640,14 @@
         }
         
         function getPieceName(char) {
-            var names = { 'p': 'Pion', 'n': 'Kuda', 'b': 'Gajah', 'r': 'Benteng', 'q': 'Menteri', 'k': 'Raja' };
+            var names = {
+                'p': 'Pion',
+                'n': 'Kuda',
+                'b': 'Gajah',
+                'r': 'Benteng',
+                'q': 'Menteri',
+                'k': 'Raja'
+            };
             return names[char.toLowerCase()] || char;
         }
 
@@ -578,10 +657,10 @@
 
             if (game.in_checkmate()) {
                 status = 'Game Over, ' + moveColor + ' terkena skakmat.';
-                playSound('notify');
+                playSound('end');
             } else if (game.in_draw()) {
                 status = 'Game Over, Remis (Draw).';
-                playSound('notify');
+                playSound('end');
             } else {
                 status = 'Giliran ' + moveColor + ' melangkah';
                 if (game.in_check()) status += ', ' + moveColor + ' sedang di-skak!';
@@ -605,10 +684,17 @@
         
         board = Chessboard('board', config);
         
+        // Force resize after render to ensure correct sizing in flex container
         setTimeout(board.resize, 200);
+
+        updateStatus();
+
+        // Handle Resize
+        $(window).resize(board.resize);
 
         // --- Game Flow & ELO System ---
         
+        // ELO Logic (LocalStorage + Google Sheets)
         function updateEloDisplay() {
             $('#playerElo').text(currentElo);
         }
@@ -622,11 +708,17 @@
         
         // --- Google Sheets Sync ---
         function syncEloToSheet(username, elo) {
+            // Using "no-cors" mode for simple submission, but better to use CORS if supported by script.
+            // With "ContentService.createTextOutput().setMimeType(JSON)", CORS is usually fine for GET/POST.
+            
             var payload = JSON.stringify({
                 username: username,
                 elo: Math.round(elo)
             });
 
+            // Using simple text/plain to avoid preflight issues if Apps Script isn't perfect.
+            // Apps Script doPost needs to parse content.
+            
             if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) {
                 console.log("Apps Script URL not set. Data not synced.");
                 return;
@@ -634,17 +726,25 @@
 
             fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors',
+                mode: 'no-cors', // 'cors' is better if script handles it correctly. Try 'no-cors' for fire-and-forget.
                 cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 redirect: 'follow',
                 body: payload
             })
-            .catch(function(err) { console.error("Sync Error:", err); });
+            .then(function(response) {
+                console.log("Sync initiated.");
+            })
+            .catch(function(err) {
+                console.error("Sync Error:", err);
+            });
         }
 
         function fetchUserElo(username) {
             if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) {
+                // Mock behavior if URL not set
                 var stored = localStorage.getItem('chessPlayerElo_' + username);
                 return Promise.resolve(stored ? parseInt(stored) : null);
             }
@@ -652,23 +752,25 @@
             return fetch(APPS_SCRIPT_URL + '?action=getElo&username=' + username)
                 .then(function(response) { return response.json(); })
                 .then(function(data) {
-                    if (data.status === 'found') return parseInt(data.elo);
+                    if (data.status === 'found') {
+                        return parseInt(data.elo);
+                    }
                     return null;
                 })
                 .catch(function(err) {
                     console.error("Fetch Error:", err);
-                    return null;
+                    return null; // Fallback
                 });
         }
 
         function handleGameOver() {
             gameActive = false;
             var aiElo = parseInt($('#aiDifficulty').val());
-            var resultScore = 0.5; 
+            var resultScore = 0.5; // Draw default
             var resultText = "Remis.";
 
             if (game.in_checkmate()) {
-                var loserColor = game.turn();
+                var loserColor = game.turn(); // 'w' or 'b'
                 if (loserColor === playerColor) {
                     resultScore = 0;
                     resultText = "Anda Kalah!";
@@ -687,6 +789,7 @@
             currentElo = Math.round(newElo);
             updateEloDisplay();
             
+            // Save Locally & Cloud
             localStorage.setItem('chessPlayerElo_' + currentUser, currentElo);
             syncEloToSheet(currentUser, currentElo);
 
@@ -707,22 +810,29 @@
 
             $('#loginBtn').prop('disabled', true).text('Memuat...');
             
+            // Try fetch cloud ELO
             fetchUserElo(username).then(function(cloudElo) {
                 if (cloudElo) {
                     currentElo = cloudElo;
                 } else {
+                    // New User or Offline
                     var local = localStorage.getItem('chessPlayerElo_' + username);
                     currentElo = local ? parseInt(local) : (initElo || 800);
+                    
+                    // First time sync
                     syncEloToSheet(username, currentElo);
                 }
 
+                // Success
                 currentUser = username;
                 useAdvisor = advisor;
                 
                 $('#displayUsername').text(currentUser);
                 updateEloDisplay();
+                
                 $('#loginOverlay').fadeOut();
                 
+                // Show advisor panels if enabled
                 if (useAdvisor) {
                     $('.sidebar-right').append('<div style="font-size:0.8em; color:green;">* Advisor Aktif</div>');
                 }
@@ -738,6 +848,7 @@
 
             var colorSelection = $('#playerColor').val();
             
+            // Determine Color
             if (colorSelection === 'random') {
                 playerColor = Math.random() < 0.5 ? 'w' : 'b';
             } else {
@@ -749,6 +860,7 @@
             board.position('start');
             gameActive = true;
             
+            // Clear UI
             $('#pgnContainer').empty();
             $('#threatAlert').hide();
             $('#hintList').empty();
@@ -757,6 +869,7 @@
             removeHighlights('highlight-legal');
             
             updateStatus();
+            playSound('start');
             $status.html("Permainan dimulai! Anda bermain sebagai: " + (playerColor === 'w' ? 'Putih' : 'Hitam'));
 
             if (playerColor === 'b') {
@@ -764,7 +877,10 @@
             }
         });
 
+        // Handle Resize
         $(window).resize(board.resize);
+        
+        // Initial Resize
         setTimeout(board.resize, 200);
 
         console.log("Game System Ready.");
