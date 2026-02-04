@@ -29,14 +29,15 @@
         .container {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
             gap: 20px;
             background: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            max-width: 600px;
+            max-width: 1000px;
             width: 100%;
+            position: relative;
         }
 
         #board {
@@ -103,32 +104,151 @@
             font-style: italic;
         }
 
+        /* Modal Overlay */
+        #loginOverlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .login-box {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Sidebar Styles */
+        .sidebar-right {
+            width: 100%;
+            border-left: 1px solid #ddd;
+            padding-left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .panel-box {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 3px;
+        }
+
+        .pgn-container {
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9em;
+            background: white;
+            padding: 5px;
+        }
+
+        .alert-box {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            display: none; /* Hidden by default */
+        }
+        
+        .hint-box {
+            color: #004085;
+            background-color: #cce5ff;
+            border-color: #b8daff;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        /* Highlight Styles */
+        .highlight-last {
+            box-shadow: inset 0 0 3px 3px rgba(255, 255, 0, 0.5);
+        }
+        .highlight-legal {
+            box-shadow: inset 0 0 3px 3px rgba(0, 255, 0, 0.5);
+        }
+
         @media (min-width: 768px) {
             .container {
                 flex-direction: row;
                 align-items: flex-start;
-                max-width: 900px;
+                max-width: 1000px;
             }
             
-            .sidebar {
-                width: 300px;
-                flex-shrink: 0;
+            .board-container {
+                flex: 0 0 400px;
+            }
+
+            .sidebar-right {
+                flex: 1;
+                border-left: 1px solid #ddd;
+                border-top: none;
+                padding-left: 20px;
+                padding-top: 0;
             }
         }
     </style>
 </head>
 <body>
 
+    <!-- Login Overlay -->
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h2>Selamat Datang!</h2>
+            
+            <div class="control-group">
+                <label for="usernameInput">Username</label>
+                <input type="text" id="usernameInput" placeholder="Contoh: Budi123">
+            </div>
+
+            <div class="control-group" id="eloInputGroup">
+                <label for="initialEloInput">ELO Awal</label>
+                <input type="number" id="initialEloInput" value="800">
+                <small style="color: #666; font-size: 0.8em;">Isi jika baru pertama kali main.</small>
+            </div>
+
+            <div class="control-group" style="flex-direction: row; align-items: center; gap: 8px;">
+                <input type="checkbox" id="advisorToggle" style="width: auto;">
+                <label for="advisorToggle" style="margin:0;">Aktifkan Saran Langkah (Advisor)</label>
+            </div>
+
+            <button id="loginBtn" style="width: 100%;">Masuk & Main</button>
+            <div id="loginStatus" style="font-size: 0.8em; color: red;"></div>
+        </div>
+    </div>
+
     <h1>Catur vs AI</h1>
 
     <div class="container">
-        <div id="board"></div>
+        <div class="board-container">
+            <div id="board"></div>
+        </div>
 
-        <div class="sidebar" style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="sidebar-right">
             
             <div class="status-panel">
-                <div>Rating Anda (ELO): <span id="playerElo" class="elo-display">Loading...</span></div>
-                <div id="gameStatus" class="game-status">Menunggu permainan dimulai...</div>
+                <div>User: <strong id="displayUsername">-</strong></div>
+                <div>Rating (ELO): <span id="playerElo" class="elo-display">...</span></div>
+                <div id="gameStatus" class="game-status">Siap bermain?</div>
             </div>
 
             <div class="controls">
@@ -148,62 +268,111 @@
 
                 <button id="startBtn">Mulai Game Baru</button>
             </div>
+
+            <!-- New Sidebar Features -->
+            <div class="panel-box">
+                <div class="panel-title">Riwayat Langkah</div>
+                <div id="pgnContainer" class="pgn-container"></div>
+            </div>
+
+            <div id="threatAlert" class="alert-box">
+                <strong>⚠️ PERINGATAN:</strong> <span id="threatMsg"></span>
+            </div>
+
+            <div id="hintContainer" class="hint-box">
+                <strong>💡 Saran:</strong> <span id="hintMsg"></span>
+            </div>
             
-            <div style="font-size: 0.9em; color: #666;">
+            <div style="font-size: 0.9em; color: #666; margin-top: auto;">
                 <p><strong>Cara Main:</strong></p>
                 <ul>
                     <li>Drag & drop bidak untuk melangkah.</li>
-                    <li>Aturan catur standar berlaku.</li>
-                    <li>Menang lawan AI rating tinggi = poin naik banyak!</li>
+                    <li>Lawan AI rating tinggi = poin naik banyak!</li>
                 </ul>
             </div>
         </div>
     </div>
+    
+    <!-- Audio Elements -->
+    <audio id="sndMove" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/move-self.mp3"></audio>
+    <audio id="sndCapture" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/capture.mp3"></audio>
+    <audio id="sndNotify" src="https://images.chesscomfiles.com/chess-themes/sounds/_common/default/notify.mp3"></audio>
 
     <script>
-        // --- Game Configuration & State ---
+        // --- Globals ---
         var board = null;
         var game = new Chess();
         var $status = $('#gameStatus');
-        var $fen = $('#fen');
-        var $pgn = $('#pgn');
-        var playerColor = 'w'; // 'w' or 'b'
+        var $pgnContainer = $('#pgnContainer');
+        var playerColor = 'w';
         var stockfish = null;
-        var stockfishLevel = 10;
         var gameActive = false;
+        
+        var currentUser = null;
+        var currentElo = 800;
+        var useAdvisor = false;
 
-        // --- Stockfish Initialization ---
+        // APPS SCRIPT URL - GANTI INI DENGAN URL WEB APP ANDA
+        var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXNw-T1tR2ULJ0koNBboeM8CMyhIIRH00skq0tdNTTitL1z2POsLy-SB9boucK6RRJ/exec';
+
+        // --- Audio ---
+        function playSound(type) {
+            try {
+                if (type === 'move') document.getElementById('sndMove').play();
+                else if (type === 'capture') document.getElementById('sndCapture').play();
+                else if (type === 'notify') document.getElementById('sndNotify').play();
+            } catch(e) { console.log('Audio error', e); }
+        }
+
+        // --- Highlights ---
+        function removeHighlights(className) {
+            $('#board .square-55d63').removeClass(className);
+        }
+
+        function highlightSquare(square, className) {
+            var $square = $('#board .square-' + square);
+            if ($square.length === 0) return;
+            $square.addClass(className);
+        }
+
+        function updateHighlights(history) {
+            removeHighlights('highlight-last');
+            if (history && history.length > 0) {
+                var lastMove = history[history.length - 1];
+                highlightSquare(lastMove.from, 'highlight-last');
+                highlightSquare(lastMove.to, 'highlight-last');
+            }
+        }
+
+        // --- Stockfish ---
         function initStockfish() {
-            // workaround for cross-origin worker
             var stockfishUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js';
             var blob = new Blob(["importScripts('" + stockfishUrl + "');"], {type: 'application/javascript'});
             stockfish = new Worker(window.URL.createObjectURL(blob));
 
             stockfish.onmessage = function(event) {
                 var line = event.data;
-                // console.log('SF: ' + line); // Debug
-
-                if (line === 'uciok') {
-                    // Stockfish is ready
-                } else if (line.indexOf('bestmove') > -1) {
-                    var match = line.match(/^bestmove ([a-h][1-8])([a-h][1-8])([qrbn])?/);
-                    if (match) {
-                        var from = match[1];
-                        var to = match[2];
-                        var promotion = match[3];
-                        
-                        game.move({
-                            from: from,
-                            to: to,
-                            promotion: promotion || 'q'
-                        });
-                        
-                        board.position(game.fen());
-                        updateStatus();
-                        
-                        // Check if game over after AI move
-                        if (game.game_over()) {
-                            handleGameOver();
+                
+                if (line.indexOf('bestmove') > -1) {
+                    var turn = game.turn();
+                    var aiColor = (playerColor === 'w') ? 'b' : 'w';
+                    
+                    if (turn === aiColor && gameActive) {
+                        var match = line.match(/^bestmove ([a-h][1-8])([a-h][1-8])([qrbn])?/);
+                        if (match) {
+                            var from = match[1];
+                            var to = match[2];
+                            var promotion = match[3];
+                            
+                            var move = game.move({ from: from, to: to, promotion: promotion || 'q' });
+                            if (move) {
+                                board.position(game.fen());
+                                var isCapture = move.flags.includes('c') || move.flags.includes('e');
+                                playSound(isCapture ? 'capture' : 'move');
+                                updateStatus();
+                                
+                                if (game.game_over()) handleGameOver();
+                            }
                         }
                     }
                 }
@@ -211,65 +380,61 @@
             
             stockfish.postMessage('uci');
         }
-
         initStockfish();
 
-        // --- AI Logic ---
         function makeAIMove() {
-            if (game.game_over()) return;
+            if (game.game_over() || !gameActive) return;
             
-            var turn = game.turn(); // 'w' or 'b'
-            var aiColor = (playerColor === 'w') ? 'b' : 'w';
+            var fen = game.fen();
+            var elo = parseInt($('#aiDifficulty').val());
+            var skillLevel = Math.floor((elo - 400) / (2600 / 20));
+            if (skillLevel < 0) skillLevel = 0; 
+            if (skillLevel > 20) skillLevel = 20;
 
-            // Only move if it's AI's turn
-            if (turn === aiColor) {
-                var fen = game.fen();
-                // Configure difficulty (Skill Level 0-20)
-                // Mapping input ELO (400-3000) to Skill Level (0-20) roughly
-                // 400 -> 0, 3000 -> 20.
-                var elo = parseInt($('#aiDifficulty').val());
-                var skillLevel = Math.floor((elo - 400) / (2600 / 20));
-                if (skillLevel < 0) skillLevel = 0;
-                if (skillLevel > 20) skillLevel = 20;
-
-                stockfish.postMessage('setoption name Skill Level value ' + skillLevel);
-                stockfish.postMessage('position fen ' + fen);
-                stockfish.postMessage('go depth 15'); // Fixed depth for consistent timing, skill level handles quality
-            }
+            stockfish.postMessage('setoption name Skill Level value ' + skillLevel);
+            stockfish.postMessage('position fen ' + fen);
+            stockfish.postMessage('go depth 15');
         }
 
         // --- Board Logic ---
         function onDragStart (source, piece, position, orientation) {
-            // Do not pick up pieces if the game is over
             if (game.game_over() || !gameActive) return false;
-
-            // Only pick up pieces for the side to move
             if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
                 (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
                 return false;
             }
-            
-            // Only allow player to move their own pieces
             if ((playerColor === 'w' && piece.search(/^b/) !== -1) ||
                 (playerColor === 'b' && piece.search(/^w/) !== -1)) {
                  return false;
             }
-        }
 
+            // Highlight legal moves
+            removeHighlights('highlight-legal');
+            var moves = game.moves({ square: source, verbose: true });
+            
+            for (var i = 0; i < moves.length; i++) {
+                highlightSquare(moves[i].to, 'highlight-legal');
+            }
+            
+            return true;
+        }
+        
         function onDrop (source, target) {
-            // see if the move is legal
+            removeHighlights('highlight-legal');
+
             var move = game.move({
                 from: source,
                 to: target,
-                promotion: 'q' // NOTE: always promote to a queen for simplicity
+                promotion: 'q'
             });
 
-            // illegal move
             if (move === null) return 'snapback';
+
+            var isCapture = move.flags.includes('c') || move.flags.includes('e');
+            playSound(isCapture ? 'capture' : 'move');
 
             updateStatus();
             
-            // Trigger AI Move
             if (!game.game_over()) {
                 window.setTimeout(makeAIMove, 250);
             } else {
@@ -277,41 +442,52 @@
             }
         }
 
-        // update the board position after the piece snap
-        // for castling, en passant, pawn promotion
         function onSnapEnd () {
             board.position(game.fen());
         }
 
+        // --- Advisor & Analysis ---
+        function runAdvisor() {
+            if (!useAdvisor) {
+                $('#hintContainer').hide();
+                $('#threatAlert').hide();
+                return;
+            }
+
+            if (game.in_check()) {
+                $('#threatAlert').show();
+                $('#threatMsg').text("Raja Anda sedang diserang (Skak)!");
+            } else {
+                $('#threatAlert').hide();
+            }
+
+            if (game.turn() === (playerColor === 'w' ? 'w' : 'b')) {
+                var moves = game.moves();
+                $('#hintContainer').show();
+                $('#hintMsg').text("Anda memiliki " + moves.length + " pilihan langkah.");
+            }
+        }
+
         function updateStatus () {
             var status = '';
+            var moveColor = (game.turn() === 'b') ? 'Hitam' : 'Putih';
 
-            var moveColor = 'Putih';
-            if (game.turn() === 'b') {
-                moveColor = 'Hitam';
-            }
-
-            // checkmate?
             if (game.in_checkmate()) {
                 status = 'Game Over, ' + moveColor + ' terkena skakmat.';
-            }
-
-            // draw?
-            else if (game.in_draw()) {
+                playSound('notify');
+            } else if (game.in_draw()) {
                 status = 'Game Over, Remis (Draw).';
-            }
-
-            // game still on
-            else {
+                playSound('notify');
+            } else {
                 status = 'Giliran ' + moveColor + ' melangkah';
-
-                // check?
-                if (game.in_check()) {
-                    status += ', ' + moveColor + ' sedang di-skak!';
-                }
+                if (game.in_check()) status += ', ' + moveColor + ' sedang di-skak!';
             }
 
             $status.html(status);
+            $pgnContainer.html(game.pgn({ max_width: 5, newline_char: '<br />' }));
+            
+            updateHighlights(game.history({ verbose: true }));
+            runAdvisor();
         }
 
         var config = {
@@ -323,58 +499,72 @@
             pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
         }
         
-        // Initialize board
         board = Chessboard('board', config);
         
-        // Force resize after render to ensure correct sizing in flex container
         setTimeout(board.resize, 200);
-
-        updateStatus();
-
-        // Handle Resize
-        $(window).resize(board.resize);
 
         // --- Game Flow & ELO System ---
         
-        // ELO Logic
-        function getPlayerElo() {
-            var stored = localStorage.getItem('chessPlayerElo');
-            return stored ? parseInt(stored) : 800;
-        }
-
-        function setPlayerElo(newElo) {
-            localStorage.setItem('chessPlayerElo', Math.round(newElo));
-            updateEloDisplay();
-        }
-
         function updateEloDisplay() {
-            $('#playerElo').text(getPlayerElo());
+            $('#playerElo').text(currentElo);
         }
 
         function calculateEloChange(playerElo, opponentElo, result) {
-            // K-factor: 32 for lower ratings (<2100) is standard
             var K = 32; 
-            
-            // Expected score
             var expectedScore = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
-            
-            // New Rating
             var change = K * (result - expectedScore);
             return change;
+        }
+        
+        // --- Google Sheets Sync ---
+        function syncEloToSheet(username, elo) {
+            var payload = JSON.stringify({
+                username: username,
+                elo: Math.round(elo)
+            });
+
+            if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) {
+                console.log("Apps Script URL not set. Data not synced.");
+                return;
+            }
+
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                redirect: 'follow',
+                body: payload
+            })
+            .catch(function(err) { console.error("Sync Error:", err); });
+        }
+
+        function fetchUserElo(username) {
+            if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) {
+                var stored = localStorage.getItem('chessPlayerElo_' + username);
+                return Promise.resolve(stored ? parseInt(stored) : null);
+            }
+
+            return fetch(APPS_SCRIPT_URL + '?action=getElo&username=' + username)
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.status === 'found') return parseInt(data.elo);
+                    return null;
+                })
+                .catch(function(err) {
+                    console.error("Fetch Error:", err);
+                    return null;
+                });
         }
 
         function handleGameOver() {
             gameActive = false;
-            var playerElo = getPlayerElo();
             var aiElo = parseInt($('#aiDifficulty').val());
-            var resultScore = 0.5; // Draw default
+            var resultScore = 0.5; 
             var resultText = "Remis.";
 
             if (game.in_checkmate()) {
-                // If it's white's turn and white is in checkmate, white lost.
-                // If player is white -> player lost.
-                var loserColor = game.turn(); // 'w' or 'b'
-                
+                var loserColor = game.turn();
                 if (loserColor === playerColor) {
                     resultScore = 0;
                     resultText = "Anda Kalah!";
@@ -387,43 +577,92 @@
                 resultText = "Remis (Draw).";
             }
 
-            var eloChange = calculateEloChange(playerElo, aiElo, resultScore);
-            var newElo = playerElo + eloChange;
-            setPlayerElo(newElo);
+            var eloChange = calculateEloChange(currentElo, aiElo, resultScore);
+            var newElo = currentElo + eloChange;
+            
+            currentElo = Math.round(newElo);
+            updateEloDisplay();
+            
+            localStorage.setItem('chessPlayerElo_' + currentUser, currentElo);
+            syncEloToSheet(currentUser, currentElo);
 
-            $status.html("<strong>GAME OVER:</strong> " + resultText + " Rating Anda: " + Math.round(newElo) + " (" + (eloChange >= 0 ? "+" : "") + Math.round(eloChange) + ")");
-            alert("Permainan Selesai!\n" + resultText + "\nRating Baru: " + Math.round(newElo));
+            $status.html("<strong>GAME OVER:</strong> " + resultText + " Rating Anda: " + currentElo + " (" + (eloChange >= 0 ? "+" : "") + Math.round(eloChange) + ")");
+            alert("Permainan Selesai!\n" + resultText + "\nRating Baru: " + currentElo);
         }
+
+        // --- Login Logic ---
+        $('#loginBtn').on('click', function() {
+            var username = $('#usernameInput').val().trim();
+            var initElo = parseInt($('#initialEloInput').val());
+            var advisor = $('#advisorToggle').is(':checked');
+
+            if (!username) {
+                $('#loginStatus').text("Username harus diisi!");
+                return;
+            }
+
+            $('#loginBtn').prop('disabled', true).text('Memuat...');
+            
+            fetchUserElo(username).then(function(cloudElo) {
+                if (cloudElo) {
+                    currentElo = cloudElo;
+                } else {
+                    var local = localStorage.getItem('chessPlayerElo_' + username);
+                    currentElo = local ? parseInt(local) : (initElo || 800);
+                    syncEloToSheet(username, currentElo);
+                }
+
+                currentUser = username;
+                useAdvisor = advisor;
+                
+                $('#displayUsername').text(currentUser);
+                updateEloDisplay();
+                $('#loginOverlay').fadeOut();
+                
+                if (useAdvisor) {
+                    $('.sidebar-right').append('<div style="font-size:0.8em; color:green;">* Advisor Aktif</div>');
+                }
+            });
+        });
 
         // Start Game Logic
         $('#startBtn').on('click', function() {
+            if (!currentUser) {
+                alert("Silakan login (refresh halaman) terlebih dahulu.");
+                return;
+            }
+
             var colorSelection = $('#playerColor').val();
             
-            // Determine Color
             if (colorSelection === 'random') {
                 playerColor = Math.random() < 0.5 ? 'w' : 'b';
             } else {
                 playerColor = (colorSelection === 'white') ? 'w' : 'b';
             }
 
-            // Reset Game
             game.reset();
             board.orientation(playerColor === 'w' ? 'white' : 'black');
             board.position('start');
             gameActive = true;
             
+            $('#pgnContainer').empty();
+            $('#threatAlert').hide();
+            $('#hintContainer').hide();
+            removeHighlights('highlight-last');
+            removeHighlights('highlight-legal');
+            
             updateStatus();
             $status.html("Permainan dimulai! Anda bermain sebagai: " + (playerColor === 'w' ? 'Putih' : 'Hitam'));
 
-            // If player is black, AI (White) moves first
             if (playerColor === 'b') {
                 window.setTimeout(makeAIMove, 500);
             }
         });
 
-        // Initialize Display
-        updateEloDisplay();
-        console.log("Game Ready.");
+        $(window).resize(board.resize);
+        setTimeout(board.resize, 200);
+
+        console.log("Game System Ready.");
     </script>
 </body>
 </html>
