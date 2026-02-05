@@ -247,11 +247,6 @@
                 <small style="color: #666; font-size: 0.8em;">Isi jika baru pertama kali main.</small>
             </div>
 
-            <div class="control-group" style="flex-direction: row; align-items: center; gap: 8px;">
-                <input type="checkbox" id="advisorToggle" style="width: auto;">
-                <label for="advisorToggle" style="margin:0;">Aktifkan Saran Langkah (Advisor)</label>
-            </div>
-
             <button id="loginBtn" style="width: 100%;">Masuk & Main</button>
             <div id="loginStatus" style="font-size: 0.8em; color: red;"></div>
         </div>
@@ -272,10 +267,8 @@
                 <!-- Auto-Hint Checkbox -->
                 <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
                     <input type="checkbox" id="cbAutoHint">
-                    <label for="cbAutoHint" style="font-weight:normal; font-size:0.9em; margin:0; cursor:pointer;">Selalu Tampilkan & Update</label>
+                    <label for="cbAutoHint" style="font-weight:normal; font-size:0.9em; margin:0; cursor:pointer;">Selalu Tampilkan Saran & Update</label>
                 </div>
-
-                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Berikan Saran (3 Opsi)</button>
                 
                 <!-- Fixed Height Hint Area -->
                 <div id="hintArea" style="min-height: 90px; background: white; padding: 5px; border:1px solid #ddd; border-radius: 4px; visibility: hidden;">
@@ -336,13 +329,6 @@
                 </div>
             </div>
             
-            <div style="font-size: 0.9em; color: #666; margin-top: auto;">
-                <p><strong>Cara Main:</strong></p>
-                <ul>
-                    <li>Drag & drop bidak untuk melangkah.</li>
-                    <li>Lawan AI rating tinggi = poin naik banyak!</li>
-                </ul>
-            </div>
         </div>
     </div>
     
@@ -352,6 +338,7 @@
     <audio id="sndAlert" src="sounds/alert.wav"></audio>
     <audio id="sndBoom" src="sounds/boom.wav"></audio>
     <audio id="sndEnd" src="sounds/end.wav"></audio>
+    <audio id="sndChime" src="sounds/chime.wav"></audio>
 
     <script>
         // --- Globals ---
@@ -369,10 +356,7 @@
         
         var currentUser = null;
         var currentElo = 800;
-        var useAdvisor = false;
-
-        // Flags
-        var isManualAnalyzing = false; // For the button "Sedang berpikir..." state
+        var useAdvisor = true; // Always active
 
         var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBIJBWZ0iPlHE5qkO8f1YDmAwnpqrE7knm9n6LHT_7hGGDXFxOyDg_vpM4VpjT3tiu/exec';
 
@@ -386,6 +370,7 @@
                     case 'alert': audio = document.getElementById('sndAlert'); break;
                     case 'boom': audio = document.getElementById('sndBoom'); break;
                     case 'end': audio = document.getElementById('sndEnd'); break;
+                    case 'chime': audio = document.getElementById('sndChime'); break;
                 }
                 if (audio) {
                     audio.currentTime = 0;
@@ -455,15 +440,6 @@
                         }
                         
                         $('#hintArea').css('visibility', 'visible');
-                    }
-                }
-
-                // Handle Bestmove (End of Analysis)
-                if (line.indexOf('bestmove') > -1) {
-                    // If it was a manual request, reset UI
-                    if (isManualAnalyzing) {
-                        isManualAnalyzing = false;
-                        $('#btnAskHint').prop('disabled', false).text('💡 Berikan Saran (3 Opsi)');
                     }
                 }
             };
@@ -537,22 +513,10 @@
                 // Enabled: Update immediately
                 updateHints();
             } else {
-                // Disabled: Hide area?
+                // Disabled: Hide area
                 $('#hintArea').css('visibility', 'hidden');
                 advisorStockfish.postMessage('stop');
             }
-        });
-
-        // Manual Button Listener
-        $('#btnAskHint').on('click', function() {
-            if (isManualAnalyzing) return;
-            
-            var turn = game.turn();
-            if (turn !== (playerColor === 'w' ? 'w' : 'b')) return;
-
-            isManualAnalyzing = true;
-            $('#btnAskHint').prop('disabled', true).text('Sedang berpikir...');
-            updateHints();
         });
 
         function formatMoveHTML(uciMove) {
@@ -636,18 +600,6 @@
                 }
             }
             
-            // Placement Logic:
-            // "Bidak putih yang tertangkap (capturedWhite) diletakkan di belakang garis pertahanan hitam"
-            // "Bidak hitam yang tertangkap (capturedBlack) diletakkan di belakang garis pertahanan putih"
-            
-            // If Orientation is 'white' (White Bottom, Black Top):
-            //   - Black's Defense is Top. -> capturedWhite goes to Top.
-            //   - White's Defense is Bottom. -> capturedBlack goes to Bottom.
-            
-            // If Orientation is 'black' (Black Bottom, White Top):
-            //   - White's Defense is Top. -> capturedBlack goes to Top.
-            //   - Black's Defense is Bottom. -> capturedWhite goes to Bottom.
-            
             var orientation = board.orientation(); // 'white' or 'black'
             
             if (orientation === 'white') {
@@ -709,22 +661,9 @@
         }
 
         function runThreatAnalysis() {
-            if (game.turn() === (playerColor === 'w' ? 'w' : 'b')) {
-                $('#advisorPanel').show();
-                $('#btnAskHint').prop('disabled', false);
-            } else {
-                $('#advisorPanel').show(); 
-                if (!$('#cbAutoHint').is(':checked')) {
-                    $('#btnAskHint').prop('disabled', true);
-                }
-            }
-
-            if (!useAdvisor) {
-                $('#threatAlert').hide(); 
-                return;
-            } else {
-                $('#threatAlert').show();
-            }
+            // Always show panel
+            $('#advisorPanel').show();
+            $('#threatAlert').show();
             
             var playerThreats = []; 
             var aiThreats = []; 
@@ -737,6 +676,8 @@
             var currentFen = game.fen();
             var boardState = game.board();
             var opponentColor = (playerColor === 'w') ? 'b' : 'w';
+            
+            var playChime = false; // Flag to play sound
 
             for(var r=0; r<8; r++) {
                 for(var c=0; c<8; c++) {
@@ -746,6 +687,10 @@
                         if (piece.color === playerColor) {
                             var attackers = getAttackers(currentFen, sq, opponentColor);
                             if (attackers.length > 0) {
+                                // Logic for Chime Sound: 
+                                // 1. Threat to Queen 
+                                // 2. Threat to any Undefended piece
+                                
                                 var minAttackerVal = 999;
                                 var minAttackerType = '';
                                 var attackerSquare = '';
@@ -758,8 +703,15 @@
                                 var defenderType = getRecapturer(currentFen, attackerSquare, sq);
 
                                 if (!defenderType) {
+                                    // Undefended -> CHIME
+                                    playChime = true;
                                     playerThreats.push({val: 100, text: "⚠️ " + pieceName + " di " + sq + " GRATIS ditangkap " + attackerName + "! (analisis awal)"});
                                 } else {
+                                    // Defended
+                                    if (piece.type === 'q') {
+                                        // Threat to Queen (Defended) -> CHIME
+                                        playChime = true;
+                                    }
                                     var myVal = getPieceValue(piece.type);
                                     var attVal = getPieceValue(minAttackerType);
                                     var defenderName = getPieceName(defenderType);
@@ -795,6 +747,11 @@
                         }
                     }
                 }
+            }
+            
+            // Only play chime if it's Player's turn (i.e. opponent just moved creating the threat)
+            if (playChime && game.turn() === playerColor && !game.in_checkmate()) {
+                playSound('chime');
             }
 
             function renderFixedList(list, selector, color) {
@@ -914,7 +871,8 @@
         $('#loginBtn').on('click', function() {
             var username = $('#usernameInput').val().trim();
             var initElo = parseInt($('#initialEloInput').val());
-            var advisor = $('#advisorToggle').is(':checked');
+            // Advisor always active
+            var advisor = true;
 
             if (!username) { $('#loginStatus').text("Username harus diisi!"); return; }
             $('#loginBtn').prop('disabled', true).text('Memuat...');
