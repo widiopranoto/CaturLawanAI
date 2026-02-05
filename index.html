@@ -865,7 +865,6 @@
                         if (piece.color === playerColor) {
                             var attackers = getAttackers(currentFen, sq, opponentColor);
                             if (attackers.length > 0) {
-                                
                                 // Find best/most dangerous attacker (lowest value usually)
                                 var minAttackerVal = 999;
                                 var minAttackerType = '';
@@ -888,15 +887,27 @@
 
                                 if (!defenderType) {
                                     playerThreats.push({
-                                        level: 2,
-                                        text: "⚠️ " + pieceName + " di " + sq + " GRATIS ditangkap " + attackerName + "!"
+                                        val: 100, // High priority for free captures
+                                        text: "⚠️ " + pieceName + " di " + sq + " GRATIS ditangkap " + attackerName + "! (analisis awal)"
                                     });
                                 } else {
+                                    // Defended. Check values.
+                                    var myVal = getPieceValue(piece.type);
+                                    var attVal = getPieceValue(minAttackerType);
                                     var defenderName = getPieceName(defenderType);
-                                    playerThreats.push({
-                                        level: 4,
-                                        text: pieceName + " di " + sq + " diancam " + attackerName + ", tapi terlindungi " + defenderName + "."
-                                    });
+                                    
+                                    if (attVal < myVal) {
+                                        // Bad trade for me (Attacker is cheaper than me)
+                                        playerThreats.push({
+                                            val: 80, 
+                                            text: "⚠️ BAHAYA: " + pieceName + " ("+myVal+") diancam " + attackerName + " ("+attVal+") meski dilindungi " + defenderName + "."
+                                        });
+                                    } else {
+                                        playerThreats.push({
+                                            val: 10,
+                                            text: "🛡️ " + pieceName + " di " + sq + " diancam " + attackerName + ", tapi terlindungi " + defenderName + "."
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -926,15 +937,27 @@
 
                                 if (!defenderType) {
                                     aiThreats.push({
-                                        level: 2,
-                                        text: "🔥 " + pieceName + " lawan di " + sq + " GRATIS untuk ditangkap!"
+                                        val: 100,
+                                        text: "🔥 " + pieceName + " lawan di " + sq + " GRATIS untuk ditangkap! (analisis awal)"
                                     });
                                 } else {
+                                    // Defended. Check Trade.
+                                    var enemyVal = getPieceValue(piece.type);
+                                    var myVal = getPieceValue(minAttackerType);
                                     var defenderName = getPieceName(defenderType);
-                                    aiThreats.push({
-                                        level: 4,
-                                        text: pieceName + " lawan di " + sq + " bisa ditangkap " + attackerName + ", tapi terlindungi " + defenderName + "."
-                                    });
+                                    
+                                    if (enemyVal > myVal) {
+                                        // Good trade! I capture high value with low value.
+                                        aiThreats.push({
+                                            val: 90,
+                                            text: "⚡ UNTUNG: Tukar " + attackerName + " ("+myVal+") dengan " + pieceName + " ("+enemyVal+") meski dijaga " + defenderName + "."
+                                        });
+                                    } else {
+                                        aiThreats.push({
+                                            val: 10,
+                                            text: "🛡️ " + pieceName + " lawan di " + sq + " bisa ditangkap " + attackerName + ", tapi terlindungi " + defenderName + "."
+                                        });
+                                    }
                                 }
                             }
                         }
