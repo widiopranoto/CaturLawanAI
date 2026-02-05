@@ -307,12 +307,18 @@
             </div>
 
             <div id="threatAlert" class="alert-box">
-                <strong>⚠️ PERINGATAN:</strong>
-                <ul id="threatList" style="margin: 5px 0; padding-left: 20px;"></ul>
+                <div id="playerThreatSection">
+                    <strong>⚠️ Ancaman (Bahaya):</strong>
+                    <ul id="threatListPlayer" style="margin: 5px 0; padding-left: 20px;"></ul>
+                </div>
+                <div id="aiThreatSection" style="margin-top: 10px; border-top: 1px solid #f5c6cb; padding-top: 5px;">
+                    <strong>⚔️ Peluang (Serang):</strong>
+                    <ul id="threatListAI" style="margin: 5px 0; padding-left: 20px;"></ul>
+                </div>
             </div>
 
             <div id="advisorPanel" class="hint-box" style="display:none; position:relative;">
-                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Minta Saran (3 Langkah)</button>
+                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Minta Saran (3 Opsi)</button>
                 <!-- Hint Popup: Absolute position to overlay without shifting layout -->
                 <div id="hintPopup" style="display:none; position:absolute; bottom:100%; left:0; right:0; background:white; border:1px solid #ccc; border-radius:4px; padding:10px; box-shadow:0 -2px 10px rgba(0,0,0,0.2); z-index:100;">
                     <strong style="display:block; border-bottom:1px solid #eee; margin-bottom:5px; padding-bottom:3px;">3 Opsi Terbaik:</strong>
@@ -724,127 +730,223 @@
             return values[type] || 0;
         }
 
-        function runAdvisor() {
-            if (!useAdvisor) {
-                $('#advisorPanel').hide();
-                $('#threatAlert').hide();
-                return;
-            }
+        // Helper: Check if a square is defended by a specific color
+        function isSquareDefended(fen, square, defenderColor) {
+            // Strategy: Create temp game with defender's turn. 
+            // Place an ENEMY piece on 'square' (dummy target).
+            // Check if any defender move captures it.
+            var tempGame = new Chess();
+            
+            // Set turn to defender
+            var tokens = fen.split(' ');
+            tokens[1] = defenderColor;
+            // Clear castling/ep to avoid validation errors if we modify board
+            // actually just load it.
+            var tempFen = tokens.join(' ');
+            // We need to load carefully. If FEN is invalid due to King missing (unlikely) it throws.
+            // But we just use current game FEN usually.
+            
+            try {
+                tempGame.load(tempFen);
+            } catch(e) { return false; }
 
-            // Show Ask Button if my turn
+            // Place dummy enemy
+            var enemyColor = (defenderColor === 'w') ? 'b' : 'w';
+            // Note: If there was a piece there, we remove it. 
+            // Ideally we check if 'square' is empty or has friend.
+            // If it has friend, we remove it to see if it is "protected" (X-ray defense).
+            // This is the correct definition of "protected" in chess (e.g. R protecting P).
+            
+            tempGame.remove(square);
+            tempGame.put({type: 'p', color: enemyColor}, square);
+            
+            var moves = tempGame.moves({verbose: true});
+            for(var i=0; i<moves.length; i++) {
+                if (moves[i].to === square) return true;
+            }
+            return false;
+        }
+
+        // Helper: Get list of attackers (piece types) for a square
+        function getAttackers(fen, square, attackerColor) {
+            var attackers = [];
+            var tempGame = new Chess();
+            
+            var tokens = fen.split(' ');
+            tokens[1] = attackerColor;
+            var tempFen = tokens.join(' ');
+            
+            try {
+                tempGame.load(tempFen);
+            } catch(e) { return []; }
+            
+            // We don't need to put anything on square, moves() handles capture if piece exists.
+            // BUT, if square is EMPTY, moves() won't show capture.
+            // However, we only call this for occupied squares usually.
+            // If we want to see if an EMPTY square is controlled, we check if move.to === square.
+            
+            var moves = tempGame.moves({verbose: true});
+            for(var i=0; i<moves.length; i++) {
+                if (moves[i].to === square) {
+                    attackers.push(moves[i].piece);
+                }
+            }
+            return attackers;
+        }
+
+        function runAdvisor() {
+            // Show Ask Button only if my turn
             if (game.turn() === (playerColor === 'w' ? 'w' : 'b')) {
                 $('#advisorPanel').show();
             } else {
                 $('#advisorPanel').hide();
             }
 
-            var threats = [];
-            
-            // 1. Checkmate / Check
-            if (game.in_check()) {
-                threats.push({level: 1, text: "RAJA ANDA SEDANG DISERANG (SKAK)!"});
+            if (!useAdvisor) {
+                $('#threatAlert').hide();
+                return;
             }
 
-            // 2. Hanging Pieces Logic
-            // Simulate Opponent Moves (Threats if I don't move)
-            var currentFen = game.fen();
-            var tokens = currentFen.split(' ');
-            var activeColor = tokens[1];
-            var opponentColor = (activeColor === 'w') ? 'b' : 'w';
+            // Always show threat panel if active
+            $('#threatAlert').show();
             
-            tokens[1] = opponentColor; // Swap to pretend it's opponent's turn
-            var tempFen = tokens.join(' ');
+            var playerThreats = []; // Threats to ME
+            var aiThreats = []; // Threats to AI (Opportunities)
             
-            // Note: If position is illegal for opponent (e.g. we are checking them), this might fail.
-            // But if it's our turn, they shouldn't be in check unless we just moved (but we are deciding move).
-            var tempGame = new Chess(tempFen);
-            var opponentMoves = tempGame.moves({ verbose: true });
-            
-            // My potential defenses (moves I can make currently)
-            var myMoves = game.moves({ verbose: true });
-            
-            // Analyze Opponent Captures
-            var threatenedSquares = {}; 
-            
-            opponentMoves.forEach(function(m) {
-                if (m.flags.includes('c') || m.flags.includes('e')) {
-                    var target = m.to;
-                    if (!threatenedSquares[target]) {
-                        threatenedSquares[target] = {
-                            piece: m.captured, 
-                            attackers: []
-                        };
-                    }
-                    threatenedSquares[target].attackers.push(m.piece);
-                }
-            });
-            
-            // Check Defenders and Values
-            for (var sq in threatenedSquares) {
-                var threatData = threatenedSquares[sq];
-                var attackedPiece = threatData.piece;
-                var attackers = threatData.attackers;
-                
-                // Do I have any move to 'sq'? (Recapture)
-                var defenders = myMoves.filter(function(m) { return m.to === sq; });
-                var isDefended = defenders.length > 0;
-                
-                var myVal = getPieceValue(attackedPiece);
-                
-                // Find lowest value attacker
-                var minAttackerVal = 999;
-                var minAttackerPiece = '';
-                attackers.forEach(function(a) {
-                    var val = getPieceValue(a);
-                    if (val < minAttackerVal) {
-                        minAttackerVal = val;
-                        minAttackerPiece = a;
-                    }
-                });
-                
-                var attackerName = getPieceName(minAttackerPiece);
-                var victimName = getPieceName(attackedPiece);
-                
-                // Logic
-                if (!isDefended) {
-                    // Hanging!
-                    threats.push({
-                        level: 2, 
-                        text: "⚠️ BAHAYA: " + victimName + " di " + sq + " GRATIS dimakan " + attackerName + "!"
-                    });
+            if (game.in_check()) {
+                if (game.turn() === playerColor) {
+                    playerThreats.push({level: 1, text: "RAJA ANDA SEDANG DISERANG (SKAK)!"});
                 } else {
-                    // Defended, check trade value
-                    if (minAttackerVal < myVal) {
-                        // Bad trade
-                        threats.push({
-                            level: 3,
-                            text: "⚠️ RUGI: " + victimName + " (" + myVal + ") diancam " + attackerName + " (" + minAttackerVal + ")."
-                        });
-                    } else {
-                        // Guarded
-                        threats.push({
-                            level: 4,
-                            text: "🛡️ TERJAGA: " + victimName + " diancam, tapi terlindungi."
-                        });
+                    aiThreats.push({level: 1, text: "RAJA LAWAN SEDANG DISERANG (SKAK)!"});
+                }
+            }
+
+            var currentFen = game.fen();
+            var boardState = game.board();
+            var opponentColor = (playerColor === 'w') ? 'b' : 'w';
+
+            // Iterate all squares
+            var squares = [];
+            for(var r=0; r<8; r++) {
+                for(var c=0; c<8; c++) {
+                    var piece = boardState[r][c];
+                    if (piece) {
+                        var sq = String.fromCharCode(97+c) + (8-r);
+                        
+                        // 1. Analyze Threats to Player (My pieces)
+                        if (piece.color === playerColor) {
+                            var attackers = getAttackers(currentFen, sq, opponentColor);
+                            if (attackers.length > 0) {
+                                // It is attacked. Is it defended?
+                                var defended = isSquareDefended(currentFen, sq, playerColor);
+                                var pieceName = getPieceName(piece.type);
+                                
+                                // Get lowest value attacker
+                                var minAttackerVal = 999;
+                                var minAttackerType = '';
+                                attackers.forEach(function(type) {
+                                    var val = getPieceValue(type);
+                                    if (val < minAttackerVal) {
+                                        minAttackerVal = val;
+                                        minAttackerType = type;
+                                    }
+                                });
+                                var attackerName = getPieceName(minAttackerType);
+                                var myVal = getPieceValue(piece.type);
+
+                                if (!defended) {
+                                    playerThreats.push({
+                                        level: 2,
+                                        text: "⚠️ " + pieceName + " di " + sq + " GRATIS dimakan " + attackerName + "!"
+                                    });
+                                } else {
+                                    // Defended
+                                    if (minAttackerVal < myVal) {
+                                        playerThreats.push({
+                                            level: 3,
+                                            text: "⚠️ RUGI: " + pieceName + " (" + myVal + ") diancam " + attackerName + " (" + minAttackerVal + ")."
+                                        });
+                                    } else {
+                                        // Fair trade or good for defender
+                                        // Optional: Only show if high value piece?
+                                        // Let's show as "Terjaga"
+                                        playerThreats.push({
+                                            level: 4,
+                                            text: "🛡️ " + pieceName + " di " + sq + " terancam tapi terlindungi."
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 2. Analyze Threats to AI (My Opportunities)
+                        if (piece.color === opponentColor) {
+                            var attackers = getAttackers(currentFen, sq, playerColor);
+                            if (attackers.length > 0) {
+                                var defended = isSquareDefended(currentFen, sq, opponentColor);
+                                var pieceName = getPieceName(piece.type);
+                                
+                                var minAttackerVal = 999;
+                                var minAttackerType = '';
+                                attackers.forEach(function(type) {
+                                    var val = getPieceValue(type);
+                                    if (val < minAttackerVal) {
+                                        minAttackerVal = val;
+                                        minAttackerType = type;
+                                    }
+                                });
+                                var attackerName = getPieceName(minAttackerType); // My piece attacking
+                                var aiVal = getPieceValue(piece.type); // Enemy piece
+
+                                if (!defended) {
+                                    aiThreats.push({
+                                        level: 2,
+                                        text: "🔥 " + pieceName + " lawan di " + sq + " GRATIS untuk dimakan!"
+                                    });
+                                } else {
+                                    if (minAttackerVal < aiVal) {
+                                        // I am attacking high value with low value
+                                        aiThreats.push({
+                                            level: 3,
+                                            text: "🎯 PELUANG: " + pieceName + " (" + aiVal + ") bisa ditukar dengan " + attackerName + "."
+                                        });
+                                    }
+                                    // Else: I attack guarded piece with equal/higher value. Not a strong opportunity.
+                                }
+                            }
+                        }
                     }
                 }
             }
+
+            // Render Lists
+            function renderList(list, selector, emptyText) {
+                var $ul = $(selector);
+                $ul.empty();
+                if (list.length === 0) {
+                    $ul.parent().hide(); // Hide section if empty
+                } else {
+                    $ul.parent().show();
+                    list.sort(function(a,b) { return a.level - b.level; });
+                    list.forEach(function(t) {
+                        var color = (t.level <= 2) ? '#721c24' : (t.level === 3) ? '#856404' : '#155724';
+                        var bg = (t.level <= 2) ? '#f8d7da' : (t.level === 3) ? '#fff3cd' : '#d4edda';
+                        // For Opportunities (AI Threats), use Green/Blue
+                        if (selector === '#threatListAI') {
+                            color = (t.level <= 2) ? '#155724' : '#004085';
+                            bg = (t.level <= 2) ? '#d4edda' : '#cce5ff';
+                        }
+                        
+                        $ul.append('<li style="background:'+bg+'; color:'+color+'; padding:2px 5px; margin-bottom:2px; border-radius:3px;">' + t.text + '</li>'); 
+                    });
+                }
+            }
             
-            // Display Threats
-            if (threats.length > 0) {
-                // Sort by level
-                threats.sort(function(a,b) { return a.level - b.level; });
-                
-                $('#threatAlert').show();
-                $('#threatList').empty();
-                
-                threats.forEach(function(t) {
-                   var color = (t.level <= 2) ? '#721c24' : (t.level === 3) ? '#856404' : '#155724';
-                   var bg = (t.level <= 2) ? '#f8d7da' : (t.level === 3) ? '#fff3cd' : '#d4edda';
-                   
-                   $('#threatList').append('<li style="background:'+bg+'; color:'+color+'; padding:2px 5px; margin-bottom:2px; border-radius:3px;">' + t.text + '</li>'); 
-                });
-            } else {
+            renderList(playerThreats, '#threatListPlayer', 'Aman.');
+            renderList(aiThreats, '#threatListAI', 'Tidak ada peluang.');
+            
+            // If both hidden, hide main alert?
+            if (playerThreats.length === 0 && aiThreats.length === 0) {
                 $('#threatAlert').hide();
             }
         }
