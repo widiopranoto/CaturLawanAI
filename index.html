@@ -306,24 +306,35 @@
                 <div id="pgnContainer" class="pgn-container"></div>
             </div>
 
-            <div id="threatAlert" class="alert-box">
+            <!-- Static Threat/Opportunity Panel -->
+            <div id="threatAlert" class="panel-box" style="display: block;">
                 <div id="playerThreatSection">
-                    <strong>⚠️ Ancaman (Bahaya):</strong>
-                    <ul id="threatListPlayer" style="margin: 5px 0; padding-left: 20px;"></ul>
+                    <strong style="color:#721c24;">⚠️ Ancaman (Bahaya)</strong>
+                    <ul id="threatListPlayer" style="margin: 5px 0; padding-left: 20px; list-style-type: none; padding:0; min-height: 75px;">
+                        <!-- Fixed 3 slots -->
+                        <li class="threat-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
+                        <li class="threat-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
+                        <li class="threat-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
+                    </ul>
                 </div>
-                <div id="aiThreatSection" style="margin-top: 10px; border-top: 1px solid #f5c6cb; padding-top: 5px;">
-                    <strong>⚔️ Peluang (Serang):</strong>
-                    <ul id="threatListAI" style="margin: 5px 0; padding-left: 20px;"></ul>
+                <div id="aiThreatSection" style="margin-top: 10px; padding-top: 5px; border-top: 1px solid #ddd;">
+                    <strong style="color:#155724;">⚔️ Peluang (Serang)</strong>
+                    <ul id="threatListAI" style="margin: 5px 0; padding-left: 20px; list-style-type: none; padding:0; min-height: 75px;">
+                        <!-- Fixed 3 slots -->
+                        <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
+                        <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
+                        <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
+                    </ul>
                 </div>
             </div>
 
             <div id="advisorPanel" class="hint-box" style="display:none; position:relative;">
-                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Minta Saran (3 Opsi)</button>
-                <!-- Hint Popup: Absolute position to overlay without shifting layout -->
-                <div id="hintPopup" style="display:none; position:absolute; bottom:100%; left:0; right:0; background:white; border:1px solid #ccc; border-radius:4px; padding:10px; box-shadow:0 -2px 10px rgba(0,0,0,0.2); z-index:100;">
-                    <strong style="display:block; border-bottom:1px solid #eee; margin-bottom:5px; padding-bottom:3px;">3 Opsi Terbaik:</strong>
+                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Berikan Saran (3 Opsi)</button>
+                
+                <!-- Fixed Height Hint Area (always takes space when Advisor is on) -->
+                <div id="hintArea" style="min-height: 90px; background: white; padding: 5px; border:1px solid #ddd; border-radius: 4px; visibility: hidden;">
+                    <strong style="display:block; border-bottom:1px solid #eee; margin-bottom:5px; font-size:0.9em;">Saran Terbaik:</strong>
                     <div id="hintList"></div>
-                    <button onclick="$('#hintPopup').hide()" style="width:100%; margin-top:5px; background:#6c757d; font-size:0.8em; padding:4px;">Tutup</button>
                 </div>
             </div>
             
@@ -443,8 +454,8 @@
                             $item.html(rank + '. ' + formatted);
                         }
                         
-                        // Show popup if hidden
-                        $('#hintPopup').show();
+                        // Show fixed area
+                        $('#hintArea').css('visibility', 'visible');
                     }
                 }
 
@@ -452,7 +463,7 @@
                     if (isAnalyzing) {
                         isAnalyzing = false;
                         // Reset button text
-                        $('#btnAskHint').prop('disabled', false).text('💡 Minta Saran (3 Langkah)');
+                        $('#btnAskHint').prop('disabled', false).text('💡 Berikan Saran (3 Opsi)');
                         
                         // Reset options
                         stockfish.postMessage('setoption name MultiPV value 1');
@@ -802,29 +813,39 @@
         }
 
         function runAdvisor() {
-            // Show Ask Button only if my turn
+            // Show Ask Button if my turn (but keep panel visible to maintain stability?)
+            // Req: "elemen yang selalu ada". So we keep buttons but disable them if not turn?
+            // Actually, keep toggle logic simple for now, but ensure threatAlert is stable.
+            
             if (game.turn() === (playerColor === 'w' ? 'w' : 'b')) {
                 $('#advisorPanel').show();
+                $('#btnAskHint').prop('disabled', false);
             } else {
-                $('#advisorPanel').hide();
+                // Keep panel but disable button? 
+                // Previous logic hid it. "tampilan tidak berubah-ubah".
+                $('#advisorPanel').show(); 
+                $('#btnAskHint').prop('disabled', true);
             }
 
             if (!useAdvisor) {
-                $('#threatAlert').hide();
+                // If advisor is off, maybe hide everything? 
+                // Or user said "elemen yang selalu ada". 
+                // Let's hide if untoggled in login, but if enabled, keep stable.
+                $('#threatAlert').hide(); 
                 return;
+            } else {
+                $('#threatAlert').show();
             }
-
-            // Always show threat panel if active
-            $('#threatAlert').show();
             
             var playerThreats = []; // Threats to ME
             var aiThreats = []; // Threats to AI (Opportunities)
             
+            // 1. Check Checkmate/Check
             if (game.in_check()) {
                 if (game.turn() === playerColor) {
-                    playerThreats.push({level: 1, text: "RAJA ANDA SEDANG DISERANG (SKAK)!"});
+                    playerThreats.push({val: 1000, text: "⚠️ RAJA ANDA SEDANG DISERANG (SKAK)!"});
                 } else {
-                    aiThreats.push({level: 1, text: "RAJA LAWAN SEDANG DISERANG (SKAK)!"});
+                    aiThreats.push({val: 1000, text: "🔥 RAJA LAWAN SEDANG DISERANG (SKAK)!"});
                 }
             }
 
@@ -833,7 +854,6 @@
             var opponentColor = (playerColor === 'w') ? 'b' : 'w';
 
             // Iterate all squares
-            var squares = [];
             for(var r=0; r<8; r++) {
                 for(var c=0; c<8; c++) {
                     var piece = boardState[r][c];
@@ -844,8 +864,7 @@
                         if (piece.color === playerColor) {
                             var attackers = getAttackers(currentFen, sq, opponentColor);
                             if (attackers.length > 0) {
-                                
-                                // Find best/most dangerous attacker (lowest value usually)
+                                // Find most dangerous threat (highest value victim vs lowest value attacker)
                                 var minAttackerVal = 999;
                                 var minAttackerType = '';
                                 var attackerSquare = '';
@@ -862,21 +881,12 @@
                                 var pieceName = getPieceName(piece.type);
                                 var attackerName = getPieceName(minAttackerType);
                                 
-                                // Check if this attacker can be recaptured
-                                var defenderType = getRecapturer(currentFen, attackerSquare, sq);
-
-                                if (!defenderType) {
-                                    playerThreats.push({
-                                        level: 2,
-                                        text: "⚠️ " + pieceName + " di " + sq + " GRATIS ditangkap " + attackerName + "!"
-                                    });
-                                } else {
-                                    var defenderName = getPieceName(defenderType);
-                                    playerThreats.push({
-                                        level: 4,
-                                        text: pieceName + " di " + sq + " diancam " + attackerName + ", tapi terlindungi " + defenderName + "."
-                                    });
-                                }
+                                // Format: "Attacker (Square) mengancam Victim (Square)"
+                                var msg = attackerName + " (" + attackerSquare + ") mengancam " + pieceName + " (" + sq + ")";
+                                
+                                // Calculate priority (Value of victim)
+                                var priority = getPieceValue(piece.type);
+                                playerThreats.push({val: priority, text: msg});
                             }
                         }
                         
@@ -884,7 +894,6 @@
                         if (piece.color === opponentColor) {
                             var attackers = getAttackers(currentFen, sq, playerColor);
                             if (attackers.length > 0) {
-                                
                                 var minAttackerVal = 999;
                                 var minAttackerType = '';
                                 var attackerSquare = '';
@@ -899,58 +908,39 @@
                                 });
                                 
                                 var pieceName = getPieceName(piece.type);
-                                var attackerName = getPieceName(minAttackerType); // My piece attacking
+                                var attackerName = getPieceName(minAttackerType);
 
-                                var defenderType = getRecapturer(currentFen, attackerSquare, sq);
-
-                                if (!defenderType) {
-                                    aiThreats.push({
-                                        level: 2,
-                                        text: "🔥 " + pieceName + " lawan di " + sq + " GRATIS untuk ditangkap!"
-                                    });
-                                } else {
-                                    var defenderName = getPieceName(defenderType);
-                                    aiThreats.push({
-                                        level: 4,
-                                        text: pieceName + " lawan di " + sq + " bisa ditangkap " + attackerName + ", tapi terlindungi " + defenderName + "."
-                                    });
-                                }
+                                // Format
+                                var msg = attackerName + " (" + attackerSquare + ") mengancam " + pieceName + " (" + sq + ")";
+                                var priority = getPieceValue(piece.type);
+                                aiThreats.push({val: priority, text: msg});
                             }
                         }
                     }
                 }
             }
 
-            // Render Lists
-            function renderList(list, selector, emptyText) {
+            // Render Fixed Slots (Top 3)
+            function renderFixedList(list, selector, color) {
+                // Sort by Value Descending
+                list.sort(function(a,b) { return b.val - a.val; });
+                
                 var $ul = $(selector);
                 $ul.empty();
-                if (list.length === 0) {
-                    $ul.parent().hide(); // Hide section if empty
-                } else {
-                    $ul.parent().show();
-                    list.sort(function(a,b) { return a.level - b.level; });
-                    list.forEach(function(t) {
-                        var color = (t.level <= 2) ? '#721c24' : (t.level === 3) ? '#856404' : '#155724';
-                        var bg = (t.level <= 2) ? '#f8d7da' : (t.level === 3) ? '#fff3cd' : '#d4edda';
-                        // For Opportunities (AI Threats), use Green/Blue
-                        if (selector === '#threatListAI') {
-                            color = (t.level <= 2) ? '#155724' : '#004085';
-                            bg = (t.level <= 2) ? '#d4edda' : '#cce5ff';
-                        }
-                        
-                        $ul.append('<li style="background:'+bg+'; color:'+color+'; padding:2px 5px; margin-bottom:2px; border-radius:3px;">' + t.text + '</li>'); 
-                    });
+                
+                // Always render 3 slots
+                for(var i=0; i<3; i++) {
+                    var content = "&nbsp;";
+                    if (i < list.length) {
+                        content = list[i].text;
+                    }
+                    var style = "padding:2px 0; border-bottom:1px solid #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85em; color: " + color + ";";
+                    $ul.append('<li style="' + style + '">' + content + '</li>');
                 }
             }
             
-            renderList(playerThreats, '#threatListPlayer', 'Aman.');
-            renderList(aiThreats, '#threatListAI', 'Tidak ada peluang.');
-            
-            // If both hidden, hide main alert?
-            if (playerThreats.length === 0 && aiThreats.length === 0) {
-                $('#threatAlert').hide();
-            }
+            renderFixedList(playerThreats, '#threatListPlayer', '#721c24'); // Dark Red
+            renderFixedList(aiThreats, '#threatListAI', '#155724'); // Dark Green
         }
         
         function getPieceName(char) {
