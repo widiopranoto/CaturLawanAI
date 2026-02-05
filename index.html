@@ -261,10 +261,16 @@
 
     <div class="container">
         <div class="board-container">
-            <!-- Top Panel: Captured by Opponent (White pieces captured by Black) -->
+            <!-- Top Panel: Captured by Opponent (My pieces lost) OR Captured by Player? 
+                 Req: "bidak hitam yang sudah ditangkap, diletakkan di belakang papan permainan putih"
+                 Assuming White is Player (Bottom). Captured Black pieces should be near White?
+                 Let's stick to standard:
+                 Top: Pieces belonging to Bottom Player that are captured? No.
+                 Top Panel (Opponent side): Shows pieces Opponent has captured (White pieces).
+                 Bottom Panel (Player side): Shows pieces Player has captured (Black pieces).
+            -->
             <div id="capturedTop" class="captured-pieces"></div>
             <div id="board"></div>
-            <!-- Bottom Panel: Captured by Player (Black pieces captured by White) -->
             <div id="capturedBottom" class="captured-pieces"></div>
         </div>
 
@@ -305,9 +311,14 @@
                 <ul id="threatList" style="margin: 5px 0; padding-left: 20px;"></ul>
             </div>
 
-            <div id="advisorPanel" class="hint-box" style="display:none;">
+            <div id="advisorPanel" class="hint-box" style="display:none; position:relative;">
                 <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Minta Saran (3 Langkah)</button>
-                <div id="hintList" style="margin-top:5px; font-weight:bold;"></div>
+                <!-- Hint Popup: Absolute position to overlay without shifting layout -->
+                <div id="hintPopup" style="display:none; position:absolute; bottom:100%; left:0; right:0; background:white; border:1px solid #ccc; border-radius:4px; padding:10px; box-shadow:0 -2px 10px rgba(0,0,0,0.2); z-index:100;">
+                    <strong style="display:block; border-bottom:1px solid #eee; margin-bottom:5px; padding-bottom:3px;">3 Opsi Terbaik:</strong>
+                    <div id="hintList"></div>
+                    <button onclick="$('#hintPopup').hide()" style="width:100%; margin-top:5px; background:#6c757d; font-size:0.8em; padding:4px;">Tutup</button>
+                </div>
             </div>
             
             <div style="font-size: 0.9em; color: #666; margin-top: auto;">
@@ -400,28 +411,44 @@
                 
                 // Handle Analysis (Hints)
                 if (isAnalyzing && line.indexOf('pv') > -1 && line.indexOf('info') > -1) {
+                    // Extract PV (Principal Variation)
+                    // Format: info depth 10 ... pv e2e4 e7e5 ...
+                    // We want to capture the first move of top 3 lines.
+                    // Actually stockfish sends updates. We wait for a bit or just parse stream?
+                    // Simpler: Just grab 'bestmove' later? No, we want MultiPV.
+                    
+                    // Regex to parse multipv line
+                    // info depth 10 seldepth 14 multipv 1 score cp 35 nodes 2345 nps 45678 tbhits 0 time 123 pv e2e4 e7e5
                     var multipvMatch = line.match(/multipv (\d+)/);
                     var pvMatch = line.match(/ pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
                     
                     if (multipvMatch && pvMatch) {
                         var rank = parseInt(multipvMatch[1]);
                         var bestMove = pvMatch[1];
-                        var formattedMove = formatMove(bestMove);
                         
+                        var formatted = formatMoveHTML(bestMove);
+                        
+                        // Update UI
                         var $list = $('#hintList');
                         var $item = $list.find('#hint-' + rank);
                         if ($item.length === 0) {
-                            $list.append('<div id="hint-' + rank + '">' + rank + '. ' + formattedMove + '</div>');
+                            $list.append('<div id="hint-' + rank + '" style="display:flex; align-items:center; margin-bottom:4px;">' + rank + '. ' + formatted + '</div>');
                         } else {
-                            $item.text(rank + '. ' + formattedMove);
+                            $item.html(rank + '. ' + formatted);
                         }
+                        
+                        // Show popup if hidden
+                        $('#hintPopup').show();
                     }
                 }
 
                 if (line.indexOf('bestmove') > -1) {
                     if (isAnalyzing) {
                         isAnalyzing = false;
-                        $('#btnAskHint').prop('disabled', false).text('💡 Minta Saran (3 Opsi)');
+                        // Reset button text
+                        $('#btnAskHint').prop('disabled', false).text('💡 Minta Saran (3 Langkah)');
+                        
+                        // Reset options
                         stockfish.postMessage('setoption name MultiPV value 1');
                         return;
                     }
@@ -480,6 +507,7 @@
             if (isAnalyzing) return;
             
             var turn = game.turn();
+            // Ensure it is player's turn
             if (turn !== (playerColor === 'w' ? 'w' : 'b')) return;
 
             isAnalyzing = true;
@@ -489,18 +517,30 @@
             var fen = game.fen();
             
             stockfish.postMessage('stop');
+            // We want strong hints, so maybe ignore skill level or use high skill?
+            // Let's use max skill for Hints to give "Best" advice.
             stockfish.postMessage('setoption name Skill Level value 20');
             stockfish.postMessage('setoption name MultiPV value 3'); // Top 3 moves
             stockfish.postMessage('position fen ' + fen);
-            stockfish.postMessage('go depth 12');
+            stockfish.postMessage('go depth 12'); // Moderate depth
         });
 
-        function formatMove(uciMove) {
+        function formatMoveHTML(uciMove) {
             var from = uciMove.substring(0,2);
             var to = uciMove.substring(2,4);
+            
+            // Generate SAN
             var tempGame = new Chess(game.fen());
             var move = tempGame.move({from: from, to: to, promotion: 'q'});
-            return move ? move.san : uciMove;
+            
+            if (!move) return uciMove;
+            
+            // Determine Piece Image
+            var pieceType = move.piece; 
+            var pieceColor = move.color;
+            var imgUrl = 'https://chessboardjs.com/img/chesspieces/wikipedia/' + pieceColor + pieceType.toUpperCase() + '.png';
+            
+            return '<img src="' + imgUrl + '" style="width:20px; height:20px; margin-right:4px;"> ' + move.san;
         }
 
         // --- Board Logic ---
@@ -519,7 +559,8 @@
             removeHighlights('highlight-legal');
             var moves = game.moves({ square: source, verbose: true });
             
-            // Wait slightly for drag to start before adding highlights
+            // Wait slightly for drag to start before adding highlights, otherwise they might be cleared?
+            // Or simply add them. 
             for (var i = 0; i < moves.length; i++) {
                 highlightSquare(moves[i].to, 'highlight-legal');
             }
@@ -527,6 +568,12 @@
             return true;
         }
         
+        // Add click handler to support tap/click highlighting (mobile friendly or better UX)
+        function onMouseoverSquare (square, piece) {
+            // Optional: highlight on hover?
+            // For now, onDragStart handles drag highlights.
+        }
+
         function onDrop (source, target) {
             removeHighlights('highlight-legal');
 
@@ -554,6 +601,9 @@
         // --- Sound Helper ---
         function handleMoveSound(move) {
             if (game.game_over()) {
+                // Should be handled in handleGameOver? 
+                // Wait, handleGameOver calls playSound? No it didn't before.
+                // Let's rely on game over trigger.
                 return; 
             }
             
@@ -561,6 +611,13 @@
             
             // Check Threat
             var isThreatening = false;
+            // Only check threat if it's not a capture (because capture has own sound)
+            // OR priority: Checkmate > Capture > Threat > Normal
+            // Actually request was:
+            // 2) Normal: "on"
+            // 3) Threatening: "alert"
+            // 3) Capture: "boom"
+            // 4) Checkmate: "end"
             
             if (game.in_checkmate()) {
                 // Handled in updateStatus/handleGameOver
@@ -582,7 +639,50 @@
         function updateCapturedPieces() {
             var history = game.history({ verbose: true });
             // Calculate captured pieces based on history captures
+            // Or simpler: Compare current board counts vs initial.
+            // Initial: 8p, 2n, 2b, 2r, 1q, 1k each.
             
+            var initial = {
+                w: {p:8, n:2, b:2, r:2, q:1, k:1},
+                b: {p:8, n:2, b:2, r:2, q:1, k:1}
+            };
+            
+            var current = {
+                w: {p:0, n:0, b:0, r:0, q:0, k:0},
+                b: {p:0, n:0, b:0, r:0, q:0, k:0}
+            };
+            
+            var boardState = game.board();
+            for (var r=0; r<8; r++) {
+                for (var c=0; c<8; c++) {
+                    var p = boardState[r][c];
+                    if (p) {
+                        current[p.color][p.type]++;
+                    }
+                }
+            }
+            
+            // Render
+            // Top Panel (Opponent Side): Shows what I (Player) captured? 
+            // Or shows what Opponent captured (My pieces)?
+            // Req: "bidak hitam yang sudah ditangkap (oleh putih), diletakkan di belakang papan putih (Player)"
+            // So Player Panel (Bottom) should show Black Pieces.
+            // Opponent Panel (Top) should show White Pieces.
+            
+            // Captured White Pieces (Show at Top)
+            var capturedW = [];
+            ['p','n','b','r','q','k'].forEach(function(type) {
+                var count = initial.w[type] - current.w[type];
+                // Handle promotion: if we have more queens than start, logic fails?
+                // Actually, if we promoted a pawn to a queen, we lose 1 pawn and gain 1 queen.
+                // Current: q=2, p=7. Initial: q=1, p=8.
+                // Diff: q = -1, p = 1.
+                // We should only show positive diffs as captured?
+                // If I lost a pawn (promoted) I didn't lose it to capture.
+                // Using history is safer for exact captures.
+            });
+            
+            // Alternative: Iterate History
             var capturedByWhite = []; // Black pieces
             var capturedByBlack = []; // White pieces
             
@@ -619,6 +719,11 @@
         }
 
         // --- Advisor & Analysis ---
+        function getPieceValue(type) {
+            var values = {p:1, n:3, b:3, r:5, q:9, k:100};
+            return values[type] || 0;
+        }
+
         function runAdvisor() {
             if (!useAdvisor) {
                 $('#advisorPanel').hide();
@@ -626,48 +731,118 @@
                 return;
             }
 
-            // Show Ask Button
+            // Show Ask Button if my turn
             if (game.turn() === (playerColor === 'w' ? 'w' : 'b')) {
                 $('#advisorPanel').show();
-                $('#hintList').empty(); // Clear previous hints until asked
             } else {
                 $('#advisorPanel').hide();
             }
 
-            // --- Threat Detection ---
             var threats = [];
+            
+            // 1. Checkmate / Check
             if (game.in_check()) {
-                threats.push("Raja Anda sedang diserang (Skak)!");
+                threats.push({level: 1, text: "RAJA ANDA SEDANG DISERANG (SKAK)!"});
             }
 
-            // Simplified "Direct Threat" from Last Move
-            var opponentColor = (playerColor === 'w') ? 'b' : 'w';
-            
-            // Check if any of MY pieces are attacked by simulating opponent moves
+            // 2. Hanging Pieces Logic
+            // Simulate Opponent Moves (Threats if I don't move)
             var currentFen = game.fen();
             var tokens = currentFen.split(' ');
-            tokens[1] = (tokens[1] === 'w') ? 'b' : 'w'; // Swap active color
+            var activeColor = tokens[1];
+            var opponentColor = (activeColor === 'w') ? 'b' : 'w';
+            
+            tokens[1] = opponentColor; // Swap to pretend it's opponent's turn
             var tempFen = tokens.join(' ');
             
+            // Note: If position is illegal for opponent (e.g. we are checking them), this might fail.
+            // But if it's our turn, they shouldn't be in check unless we just moved (but we are deciding move).
             var tempGame = new Chess(tempFen);
             var opponentMoves = tempGame.moves({ verbose: true });
             
-            for (var i=0; i<opponentMoves.length; i++) {
-                var m = opponentMoves[i];
+            // My potential defenses (moves I can make currently)
+            var myMoves = game.moves({ verbose: true });
+            
+            // Analyze Opponent Captures
+            var threatenedSquares = {}; 
+            
+            opponentMoves.forEach(function(m) {
                 if (m.flags.includes('c') || m.flags.includes('e')) {
-                     var pieceName = getPieceName(m.captured || 'p'); // captured piece
-                     var attackerName = getPieceName(m.piece);
-                     var threatText = attackerName + " (" + m.from + ") mengancam " + pieceName + " di " + m.to;
-                     
-                     if (!threats.includes(threatText)) threats.push(threatText);
+                    var target = m.to;
+                    if (!threatenedSquares[target]) {
+                        threatenedSquares[target] = {
+                            piece: m.captured, 
+                            attackers: []
+                        };
+                    }
+                    threatenedSquares[target].attackers.push(m.piece);
+                }
+            });
+            
+            // Check Defenders and Values
+            for (var sq in threatenedSquares) {
+                var threatData = threatenedSquares[sq];
+                var attackedPiece = threatData.piece;
+                var attackers = threatData.attackers;
+                
+                // Do I have any move to 'sq'? (Recapture)
+                var defenders = myMoves.filter(function(m) { return m.to === sq; });
+                var isDefended = defenders.length > 0;
+                
+                var myVal = getPieceValue(attackedPiece);
+                
+                // Find lowest value attacker
+                var minAttackerVal = 999;
+                var minAttackerPiece = '';
+                attackers.forEach(function(a) {
+                    var val = getPieceValue(a);
+                    if (val < minAttackerVal) {
+                        minAttackerVal = val;
+                        minAttackerPiece = a;
+                    }
+                });
+                
+                var attackerName = getPieceName(minAttackerPiece);
+                var victimName = getPieceName(attackedPiece);
+                
+                // Logic
+                if (!isDefended) {
+                    // Hanging!
+                    threats.push({
+                        level: 2, 
+                        text: "⚠️ BAHAYA: " + victimName + " di " + sq + " GRATIS dimakan " + attackerName + "!"
+                    });
+                } else {
+                    // Defended, check trade value
+                    if (minAttackerVal < myVal) {
+                        // Bad trade
+                        threats.push({
+                            level: 3,
+                            text: "⚠️ RUGI: " + victimName + " (" + myVal + ") diancam " + attackerName + " (" + minAttackerVal + ")."
+                        });
+                    } else {
+                        // Guarded
+                        threats.push({
+                            level: 4,
+                            text: "🛡️ TERJAGA: " + victimName + " diancam, tapi terlindungi."
+                        });
+                    }
                 }
             }
             
+            // Display Threats
             if (threats.length > 0) {
+                // Sort by level
+                threats.sort(function(a,b) { return a.level - b.level; });
+                
                 $('#threatAlert').show();
                 $('#threatList').empty();
+                
                 threats.forEach(function(t) {
-                   $('#threatList').append('<li>' + t + '</li>'); 
+                   var color = (t.level <= 2) ? '#721c24' : (t.level === 3) ? '#856404' : '#155724';
+                   var bg = (t.level <= 2) ? '#f8d7da' : (t.level === 3) ? '#fff3cd' : '#d4edda';
+                   
+                   $('#threatList').append('<li style="background:'+bg+'; color:'+color+'; padding:2px 5px; margin-bottom:2px; border-radius:3px;">' + t.text + '</li>'); 
                 });
             } else {
                 $('#threatAlert').hide();
@@ -719,10 +894,17 @@
         
         board = Chessboard('board', config);
         
+        // Force resize after render to ensure correct sizing in flex container
         setTimeout(board.resize, 200);
+
+        updateStatus();
+
+        // Handle Resize
+        $(window).resize(board.resize);
 
         // --- Game Flow & ELO System ---
         
+        // ELO Logic (LocalStorage + Google Sheets)
         function updateEloDisplay() {
             $('#playerElo').text(currentElo);
         }
@@ -736,11 +918,17 @@
         
         // --- Google Sheets Sync ---
         function syncEloToSheet(username, elo) {
+            // Using "no-cors" mode for simple submission, but better to use CORS if supported by script.
+            // With "ContentService.createTextOutput().setMimeType(JSON)", CORS is usually fine for GET/POST.
+            
             var payload = JSON.stringify({
                 username: username,
                 elo: Math.round(elo)
             });
 
+            // Using simple text/plain to avoid preflight issues if Apps Script isn't perfect.
+            // Apps Script doPost needs to parse content.
+            
             if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) {
                 console.log("Apps Script URL not set. Data not synced.");
                 return;
@@ -748,17 +936,25 @@
 
             fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors',
+                mode: 'no-cors', // 'cors' is better if script handles it correctly. Try 'no-cors' for fire-and-forget.
                 cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 redirect: 'follow',
                 body: payload
             })
-            .catch(function(err) { console.error("Sync Error:", err); });
+            .then(function(response) {
+                console.log("Sync initiated.");
+            })
+            .catch(function(err) {
+                console.error("Sync Error:", err);
+            });
         }
 
         function fetchUserElo(username) {
             if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) {
+                // Mock behavior if URL not set
                 var stored = localStorage.getItem('chessPlayerElo_' + username);
                 return Promise.resolve(stored ? parseInt(stored) : null);
             }
@@ -766,12 +962,14 @@
             return fetch(APPS_SCRIPT_URL + '?action=getElo&username=' + username)
                 .then(function(response) { return response.json(); })
                 .then(function(data) {
-                    if (data.status === 'found') return parseInt(data.elo);
+                    if (data.status === 'found') {
+                        return parseInt(data.elo);
+                    }
                     return null;
                 })
                 .catch(function(err) {
                     console.error("Fetch Error:", err);
-                    return null;
+                    return null; // Fallback
                 });
         }
 
@@ -801,6 +999,7 @@
             currentElo = Math.round(newElo);
             updateEloDisplay();
             
+            // Save Locally & Cloud
             localStorage.setItem('chessPlayerElo_' + currentUser, currentElo);
             syncEloToSheet(currentUser, currentElo);
 
@@ -821,22 +1020,29 @@
 
             $('#loginBtn').prop('disabled', true).text('Memuat...');
             
+            // Try fetch cloud ELO
             fetchUserElo(username).then(function(cloudElo) {
                 if (cloudElo) {
                     currentElo = cloudElo;
                 } else {
+                    // New User or Offline
                     var local = localStorage.getItem('chessPlayerElo_' + username);
                     currentElo = local ? parseInt(local) : (initElo || 800);
+                    
+                    // First time sync
                     syncEloToSheet(username, currentElo);
                 }
 
+                // Success
                 currentUser = username;
                 useAdvisor = advisor;
                 
                 $('#displayUsername').text(currentUser);
                 updateEloDisplay();
+                
                 $('#loginOverlay').fadeOut();
                 
+                // Show advisor panels if enabled
                 if (useAdvisor) {
                     $('.sidebar-right').append('<div style="font-size:0.8em; color:green;">* Advisor Aktif</div>');
                 }
@@ -852,34 +1058,39 @@
 
             var colorSelection = $('#playerColor').val();
             
+            // Determine Color
             if (colorSelection === 'random') {
                 playerColor = Math.random() < 0.5 ? 'w' : 'b';
             } else {
                 playerColor = (colorSelection === 'white') ? 'w' : 'b';
             }
 
+            // Reset Game
             game.reset();
             board.orientation(playerColor === 'w' ? 'white' : 'black');
             board.position('start');
             gameActive = true;
             
+            // Clear UI
             $('#pgnContainer').empty();
             $('#threatAlert').hide();
-            $('#hintList').empty();
-            $('#advisorPanel').hide();
+            $('#hintContainer').hide();
             removeHighlights('highlight-last');
             removeHighlights('highlight-legal');
             
             updateStatus();
-            playSound('start');
             $status.html("Permainan dimulai! Anda bermain sebagai: " + (playerColor === 'w' ? 'Putih' : 'Hitam'));
 
+            // If player is black, AI (White) moves first
             if (playerColor === 'b') {
                 window.setTimeout(makeAIMove, 500);
             }
         });
 
+        // Handle Resize
         $(window).resize(board.resize);
+        
+        // Initial Resize
         setTimeout(board.resize, 200);
 
         console.log("Game System Ready.");
