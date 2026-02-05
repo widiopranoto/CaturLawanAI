@@ -272,6 +272,17 @@
             <div id="capturedTop" class="captured-pieces"></div>
             <div id="board"></div>
             <div id="capturedBottom" class="captured-pieces"></div>
+            
+            <!-- Advisor Panel (Moved to Bottom) -->
+            <div id="advisorPanel" class="hint-box" style="display:none; position:relative; margin-top:10px; width:100%;">
+                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Berikan Saran (3 Opsi)</button>
+                
+                <!-- Fixed Height Hint Area (always takes space when Advisor is on) -->
+                <div id="hintArea" style="min-height: 90px; background: white; padding: 5px; border:1px solid #ddd; border-radius: 4px; visibility: hidden;">
+                    <strong style="display:block; border-bottom:1px solid #eee; margin-bottom:5px; font-size:0.9em;">Opsi Langkah:</strong>
+                    <div id="hintList"></div>
+                </div>
+            </div>
         </div>
 
         <div class="sidebar-right">
@@ -325,16 +336,6 @@
                         <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
                         <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
                     </ul>
-                </div>
-            </div>
-
-            <div id="advisorPanel" class="hint-box" style="display:none; position:relative;">
-                <button id="btnAskHint" style="width:100%; background:#0056b3; margin-bottom:5px;">💡 Berikan Saran (3 Opsi)</button>
-                
-                <!-- Fixed Height Hint Area (always takes space when Advisor is on) -->
-                <div id="hintArea" style="min-height: 90px; background: white; padding: 5px; border:1px solid #ddd; border-radius: 4px; visibility: hidden;">
-                    <strong style="display:block; border-bottom:1px solid #eee; margin-bottom:5px; font-size:0.9em;">Saran Terbaik:</strong>
-                    <div id="hintList"></div>
                 </div>
             </div>
             
@@ -864,7 +865,8 @@
                         if (piece.color === playerColor) {
                             var attackers = getAttackers(currentFen, sq, opponentColor);
                             if (attackers.length > 0) {
-                                // Find most dangerous threat (highest value victim vs lowest value attacker)
+                                
+                                // Find best/most dangerous attacker (lowest value usually)
                                 var minAttackerVal = 999;
                                 var minAttackerType = '';
                                 var attackerSquare = '';
@@ -881,12 +883,21 @@
                                 var pieceName = getPieceName(piece.type);
                                 var attackerName = getPieceName(minAttackerType);
                                 
-                                // Format: "Attacker (Square) mengancam Victim (Square)"
-                                var msg = attackerName + " (" + attackerSquare + ") mengancam " + pieceName + " (" + sq + ")";
-                                
-                                // Calculate priority (Value of victim)
-                                var priority = getPieceValue(piece.type);
-                                playerThreats.push({val: priority, text: msg});
+                                // Check if this attacker can be recaptured
+                                var defenderType = getRecapturer(currentFen, attackerSquare, sq);
+
+                                if (!defenderType) {
+                                    playerThreats.push({
+                                        level: 2,
+                                        text: "⚠️ " + pieceName + " di " + sq + " GRATIS ditangkap " + attackerName + "!"
+                                    });
+                                } else {
+                                    var defenderName = getPieceName(defenderType);
+                                    playerThreats.push({
+                                        level: 4,
+                                        text: pieceName + " di " + sq + " diancam " + attackerName + ", tapi terlindungi " + defenderName + "."
+                                    });
+                                }
                             }
                         }
                         
@@ -894,6 +905,7 @@
                         if (piece.color === opponentColor) {
                             var attackers = getAttackers(currentFen, sq, playerColor);
                             if (attackers.length > 0) {
+                                
                                 var minAttackerVal = 999;
                                 var minAttackerType = '';
                                 var attackerSquare = '';
@@ -908,12 +920,22 @@
                                 });
                                 
                                 var pieceName = getPieceName(piece.type);
-                                var attackerName = getPieceName(minAttackerType);
+                                var attackerName = getPieceName(minAttackerType); // My piece attacking
 
-                                // Format
-                                var msg = attackerName + " (" + attackerSquare + ") mengancam " + pieceName + " (" + sq + ")";
-                                var priority = getPieceValue(piece.type);
-                                aiThreats.push({val: priority, text: msg});
+                                var defenderType = getRecapturer(currentFen, attackerSquare, sq);
+
+                                if (!defenderType) {
+                                    aiThreats.push({
+                                        level: 2,
+                                        text: "🔥 " + pieceName + " lawan di " + sq + " GRATIS untuk ditangkap!"
+                                    });
+                                } else {
+                                    var defenderName = getPieceName(defenderType);
+                                    aiThreats.push({
+                                        level: 4,
+                                        text: pieceName + " lawan di " + sq + " bisa ditangkap " + attackerName + ", tapi terlindungi " + defenderName + "."
+                                    });
+                                }
                             }
                         }
                     }
