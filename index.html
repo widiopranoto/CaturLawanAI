@@ -857,25 +857,10 @@
                                 if (!defended) {
                                     playerThreats.push({
                                         level: 2,
-                                        text: "⚠️ " + pieceName + " di " + sq + " GRATIS dimakan " + attackerName + "!"
+                                        text: "⚠️ " + pieceName + " di " + sq + " GRATIS ditangkap " + attackerName + "!"
                                     });
-                                } else {
-                                    // Defended
-                                    if (minAttackerVal < myVal) {
-                                        playerThreats.push({
-                                            level: 3,
-                                            text: "⚠️ RUGI: " + pieceName + " (" + myVal + ") diancam " + attackerName + " (" + minAttackerVal + ")."
-                                        });
-                                    } else {
-                                        // Fair trade or good for defender
-                                        // Optional: Only show if high value piece?
-                                        // Let's show as "Terjaga"
-                                        playerThreats.push({
-                                            level: 4,
-                                            text: "🛡️ " + pieceName + " di " + sq + " terancam tapi terlindungi."
-                                        });
-                                    }
-                                }
+                                } 
+                                // Else: Defended -> Do not show (per user request)
                             }
                         }
                         
@@ -896,23 +881,14 @@
                                     }
                                 });
                                 var attackerName = getPieceName(minAttackerType); // My piece attacking
-                                var aiVal = getPieceValue(piece.type); // Enemy piece
 
                                 if (!defended) {
                                     aiThreats.push({
                                         level: 2,
-                                        text: "🔥 " + pieceName + " lawan di " + sq + " GRATIS untuk dimakan!"
+                                        text: "🔥 " + pieceName + " lawan di " + sq + " GRATIS untuk ditangkap!"
                                     });
-                                } else {
-                                    if (minAttackerVal < aiVal) {
-                                        // I am attacking high value with low value
-                                        aiThreats.push({
-                                            level: 3,
-                                            text: "🎯 PELUANG: " + pieceName + " (" + aiVal + ") bisa ditukar dengan " + attackerName + "."
-                                        });
-                                    }
-                                    // Else: I attack guarded piece with equal/higher value. Not a strong opportunity.
-                                }
+                                } 
+                                // Else: Defended -> Do not show
                             }
                         }
                     }
