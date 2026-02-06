@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Main Catur vs AI</title>
     
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♟️</text></svg>">
+    
     <!-- Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
@@ -191,17 +194,33 @@
         /* Alert Box (Queen) */
         .alert-popup {
             background: white;
-            padding: 30px;
+            padding: 25px;
             border-radius: 16px;
-            width: 300px;
+            width: 320px;
             text-align: center;
             border: 4px solid #e53e3e;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         
         @keyframes popIn {
             from { transform: scale(0.8); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
+        }
+        
+        .close-icon {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #718096;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .close-icon:hover {
+            color: #e53e3e;
         }
         
         .elo-guide {
@@ -359,9 +378,11 @@
     <!-- Queen Alert Overlay -->
     <div id="queenAlertOverlay" class="modal-overlay">
         <div class="alert-popup">
-            <h2 style="color:#e53e3e; margin-top:0;">⚠️ BAHAYA!</h2>
-            <p style="font-size:1.1em; margin: 15px 0;">Menteri Anda sedang diancam!</p>
-            <button id="closeAlertBtn" style="width:100%; background: #e53e3e;">OK, Saya Mengerti</button>
+            <div id="closeAlertX" class="close-icon">&times;</div>
+            <div style="font-size: 3em; margin-bottom: 10px;">⚠️</div>
+            <h2 style="color:#e53e3e; margin:0;">AWAS!</h2>
+            <p style="font-size:1.2em; margin: 15px 0; color: #2d3748; font-weight: 600;">Menteri Anda sedang diancam!</p>
+            <p style="font-size:0.9em; color: #718096; margin-bottom: 0;">Selamatkan menterimu sebelum terlambat.</p>
         </div>
     </div>
 
@@ -450,14 +471,6 @@
             
         </div>
     </div>
-    
-    <!-- Audio Elements -->
-    <audio id="sndStart" src="sounds/start.wav"></audio>
-    <audio id="sndOn" src="sounds/on.wav"></audio>
-    <audio id="sndAlert" src="sounds/alert.wav"></audio>
-    <audio id="sndBoom" src="sounds/boom.wav"></audio>
-    <audio id="sndEnd" src="sounds/end.wav"></audio>
-    <audio id="sndChime" src="sounds/chime.wav"></audio>
 
     <script>
         // --- Globals ---
@@ -482,23 +495,79 @@
 
         var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBIJBWZ0iPlHE5qkO8f1YDmAwnpqrE7knm9n6LHT_7hGGDXFxOyDg_vpM4VpjT3tiu/exec';
 
-        // --- Audio Logic ---
+        // --- Audio Logic (Synth Fallback) ---
+        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function resumeAudio() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
         function playSound(type) {
-            try {
-                var audio = null;
-                switch(type) {
-                    case 'start': audio = document.getElementById('sndStart'); break;
-                    case 'on': audio = document.getElementById('sndOn'); break;
-                    case 'alert': audio = document.getElementById('sndAlert'); break;
-                    case 'boom': audio = document.getElementById('sndBoom'); break;
-                    case 'end': audio = document.getElementById('sndEnd'); break;
-                    case 'chime': audio = document.getElementById('sndChime'); break;
-                }
-                if (audio) {
-                    audio.currentTime = 0;
-                    audio.play().catch(e => console.log("Audio autoplay blocked:", e));
-                }
-            } catch(e) { console.log('Audio error', e); }
+            resumeAudio();
+            var osc = audioCtx.createOscillator();
+            var gainNode = audioCtx.createGain();
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            var now = audioCtx.currentTime;
+            
+            switch(type) {
+                case 'start':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                    gainNode.gain.setValueAtTime(0.3, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                    break;
+                case 'on': // Move
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                    break;
+                case 'boom': // Capture
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                    break;
+                case 'alert': // Check
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.linearRampToValueAtTime(400, now + 0.2);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                    break;
+                case 'chime': // Threat
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1200, now);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+                    osc.start(now);
+                    osc.stop(now + 1.5);
+                    break;
+                case 'end': // Game Over
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.linearRampToValueAtTime(220, now + 0.5);
+                    gainNode.gain.setValueAtTime(0.3, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
+                    osc.start(now);
+                    osc.stop(now + 1.0);
+                    break;
+            }
         }
 
         // --- Highlights ---
@@ -647,9 +716,10 @@
             }
         });
         
-        // Alert Modal Listener
-        $('#closeAlertBtn').on('click', function() {
+        // Alert Modal Listener (X button)
+        $('#closeAlertX').on('click', function() {
             $('#queenAlertOverlay').fadeOut();
+            resumeAudio();
         });
 
         function formatMoveHTML(uciMove) {
@@ -691,6 +761,7 @@
             var move = game.move({ from: source, to: target, promotion: 'q' });
             if (move === null) return 'snapback';
 
+            resumeAudio(); 
             handleMoveSound(move);
             updateStatus();
             updateCapturedPieces(); 
@@ -878,12 +949,9 @@
                 }
             }
             
-            // Only play sound/show modal if it's Player's turn
             if (game.turn() === playerColor && !game.in_checkmate()) {
                 if (playChime) playSound('chime');
                 
-                // Show Queen Alert Modal if not already shown for this turn
-                // Use move history count to identify "Turn"
                 var currentMoveCount = game.history().length;
                 if (queenThreatened && queenAlertShownForTurn !== currentMoveCount) {
                     $('#queenAlertOverlay').css('display', 'flex').hide().fadeIn();
@@ -1007,11 +1075,13 @@
         $('#loginBtn').on('click', function() {
             var username = $('#usernameInput').val().trim();
             var initElo = parseInt($('#initialEloInput').val());
-            // Advisor always active
             var advisor = true;
 
             if (!username) { $('#loginStatus').text("Username harus diisi!"); return; }
             $('#loginBtn').prop('disabled', true).text('Memuat...');
+            
+            // Unlock Audio Context on user interaction
+            resumeAudio();
             
             fetchUserElo(username).then(function(cloudElo) {
                 if (cloudElo) currentElo = cloudElo;
@@ -1032,6 +1102,9 @@
         // Start Game
         $('#startBtn').on('click', function() {
             if (!currentUser) { alert("Silakan login (refresh halaman) terlebih dahulu."); return; }
+            
+            resumeAudio(); // Ensure audio context is ready
+            
             var colorSelection = $('#playerColor').val();
             if (colorSelection === 'random') playerColor = Math.random() < 0.5 ? 'w' : 'b';
             else playerColor = (colorSelection === 'white') ? 'w' : 'b';
@@ -1040,13 +1113,12 @@
             board.orientation(playerColor === 'w' ? 'white' : 'black');
             board.position('start');
             gameActive = true;
-            queenAlertShownForTurn = -1; // Reset
+            queenAlertShownForTurn = -1; 
             
             $('#pgnContainer').empty();
-            $('#threatAlert').show(); // Ensure visible
+            $('#threatAlert').show(); 
             $('#hintList').empty();
             
-            // Sync UI states
             if (!$('#cbAutoHint').is(':checked')) $('#hintArea').css('visibility', 'hidden');
             if ($('#cbShowHistory').is(':checked')) $('#pgnContainer').show();
             else $('#pgnContainer').hide();
@@ -1062,7 +1134,7 @@
 
         $(window).resize(board.resize);
         setTimeout(board.resize, 200);
-        console.log("Game System Ready (Teen UI Updated).");
+        console.log("Game System Ready (Audio Synth Enabled).");
     </script>
 </body>
 </html>
