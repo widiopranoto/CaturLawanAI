@@ -7,14 +7,16 @@
     
     <!-- Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -23,7 +25,11 @@
         }
 
         h1 {
-            margin-bottom: 10px;
+            margin-bottom: 20px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            font-weight: 800;
+            font-size: 2.5em;
         }
 
         .container {
@@ -31,18 +37,21 @@
             flex-direction: column;
             align-items: flex-start;
             gap: 20px;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
             max-width: 1000px;
             width: 100%;
             position: relative;
+            backdrop-filter: blur(10px);
         }
 
         #board {
             width: 100%;
             max-width: 400px;
+            border: 5px solid #4a5568;
+            border-radius: 4px;
         }
 
         /* Captured Pieces Styles */
@@ -50,169 +59,238 @@
             display: flex;
             flex-direction: row;
             flex-wrap: wrap;
-            height: 30px;
+            height: 35px;
             width: 100%;
             max-width: 400px;
-            background-color: #f0f0f0;
-            border-radius: 4px;
-            margin-bottom: 5px;
-            margin-top: 5px;
-            padding: 2px;
+            background-color: #edf2f7;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            margin-top: 8px;
+            padding: 4px;
             align-items: center;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
         }
         .captured-pieces img {
-            width: 25px;
-            height: 25px;
+            width: 28px;
+            height: 28px;
             margin-right: 2px;
+            filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
         }
 
         .controls {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 15px;
             justify-content: center;
             width: 100%;
+            margin-bottom: 15px;
         }
 
         .control-group {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
+            flex: 1;
+            min-width: 120px;
         }
 
         label {
             font-size: 0.9em;
-            margin-bottom: 4px;
-            font-weight: bold;
+            margin-bottom: 6px;
+            font-weight: 700;
+            color: #4a5568;
         }
 
         select, input, button {
-            padding: 8px 12px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
             font-size: 1em;
+            font-family: 'Nunito', sans-serif;
+            width: 100%;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+        
+        input:focus, select:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
         }
 
         button {
-            background-color: #007bff;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             cursor: pointer;
-            transition: background 0.2s;
-            align-self: flex-end;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: auto;
         }
 
         button:hover {
-            background-color: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(118, 75, 162, 0.3);
+        }
+        
+        button:disabled {
+            background: #cbd5e0;
+            transform: none;
+            cursor: not-allowed;
         }
 
         .status-panel {
             text-align: center;
             width: 100%;
-            padding: 10px;
-            background: #e9ecef;
-            border-radius: 4px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 1px solid #edf2f7;
+            margin-bottom: 15px;
         }
 
         .elo-display {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #28a745;
+            font-size: 1.3em;
+            font-weight: 800;
+            color: #38a169;
         }
 
         .game-status {
-            margin-top: 5px;
+            margin-top: 8px;
             font-style: italic;
+            color: #718096;
         }
 
-        /* Modal Overlay */
-        #loginOverlay {
+        /* Modal Overlay (Generic) */
+        .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
-            display: flex;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            display: none; /* Hidden by default */
             justify-content: center;
             align-items: center;
             z-index: 1000;
         }
 
+        /* Login Box */
         .login-box {
             background: white;
-            padding: 30px;
-            border-radius: 8px;
-            width: 300px;
+            padding: 40px;
+            border-radius: 20px;
+            width: 350px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        /* Alert Box (Queen) */
+        .alert-popup {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            width: 300px;
+            text-align: center;
+            border: 4px solid #e53e3e;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        .elo-guide {
+            font-size: 0.85em;
+            background: #ebf8ff;
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #4299e1;
+            color: #2c5282;
+            margin-top: -10px;
+        }
+        
+        .elo-guide table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+        }
+        
+        .elo-guide td {
+            padding: 2px 0;
         }
 
         /* Sidebar Styles */
         .sidebar-right {
             width: 100%;
-            border-left: 1px solid #ddd;
-            padding-left: 20px;
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
         
         .panel-box {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 4px;
-            padding: 10px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         
         .panel-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #555;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 3px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            color: #2d3748;
+            border-bottom: 2px solid #edf2f7;
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .pgn-container {
             height: 150px;
             overflow-y: auto;
-            font-family: monospace;
+            font-family: 'Courier New', monospace;
             font-size: 0.9em;
-            background: white;
-            padding: 5px;
+            background: #f7fafc;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #edf2f7;
         }
 
         .alert-box {
-            color: #721c24;
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 0.9em;
-            display: none; /* Hidden by default */
+            color: #742a2a;
+            background-color: #fff5f5;
+            border-color: #feb2b2;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.95em;
         }
         
         .hint-box {
-            color: #004085;
-            background-color: #cce5ff;
-            border-color: #b8daff;
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 0.9em;
-            display: none;
+            background: linear-gradient(to right, #ebf8ff, #fff);
+            border: 1px solid #bee3f8;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 0.95em;
         }
 
         /* Highlight Styles */
         .highlight-last {
-            box-shadow: inset 0 0 3px 3px rgba(255, 255, 0, 0.5);
+            box-shadow: inset 0 0 3px 3px rgba(255, 215, 0, 0.6);
         }
         .highlight-legal {
-            box-shadow: inset 0 0 3px 3px rgba(0, 255, 0, 0.5);
+            box-shadow: inset 0 0 3px 3px rgba(102, 126, 234, 0.5);
         }
 
         @media (min-width: 768px) {
             .container {
                 flex-direction: row;
                 align-items: flex-start;
-                max-width: 1000px;
             }
             
             .board-container {
@@ -221,38 +299,73 @@
 
             .sidebar-right {
                 flex: 1;
-                border-left: 1px solid #ddd;
-                border-top: none;
                 padding-left: 20px;
-                padding-top: 0;
             }
+        }
+        
+        /* Checkbox Custom Style */
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .checkbox-wrapper input {
+            width: auto;
+            cursor: pointer;
+        }
+        .checkbox-wrapper span {
+            font-size: 0.9em;
+            color: #4a5568;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
 
     <!-- Login Overlay -->
-    <div id="loginOverlay">
+    <div id="loginOverlay" class="modal-overlay" style="display:flex;">
         <div class="login-box">
-            <h2>Selamat Datang!</h2>
+            <h2 style="text-align:center; margin-bottom:10px; color:#4a5568;">🎮 Mulai Main!</h2>
             
             <div class="control-group">
-                <label for="usernameInput">Username</label>
-                <input type="text" id="usernameInput" placeholder="Contoh: Budi123">
+                <label for="usernameInput">Username Kerenmu</label>
+                <input type="text" id="usernameInput" placeholder="Misal: JagoanCatur123">
             </div>
 
             <div class="control-group" id="eloInputGroup">
-                <label for="initialEloInput">ELO Awal</label>
-                <input type="number" id="initialEloInput" value="800">
-                <small style="color: #666; font-size: 0.8em;">Isi jika baru pertama kali main.</small>
+                <label for="initialEloInput">Rating Awal</label>
+                <input type="number" id="initialEloInput" value="500">
+            </div>
+            
+            <div class="elo-guide">
+                <strong>Panduan Rating ELO:</strong>
+                <table>
+                    <tr><td>👶 SD</td><td>: 400 - 600</td></tr>
+                    <tr><td>👦 SMP</td><td>: 600 - 800</td></tr>
+                    <tr><td>🧑 SMA</td><td>: 800 - 1000</td></tr>
+                    <tr><td>🎓 Mahasiswa</td><td>: 1000 - 1200</td></tr>
+                    <tr><td>👨 Dewasa (Hobi)</td><td>: 1200 - 1400</td></tr>
+                    <tr><td>🏆 Professional</td><td>: 2000+</td></tr>
+                    <tr><td>👑 Grand Master</td><td>: 2500+</td></tr>
+                </table>
             </div>
 
-            <button id="loginBtn" style="width: 100%;">Masuk & Main</button>
-            <div id="loginStatus" style="font-size: 0.8em; color: red;"></div>
+            <button id="loginBtn" style="width: 100%; padding: 12px; font-size:1.1em;">🚀 Masuk & Main</button>
+            <div id="loginStatus" style="font-size: 0.9em; color: #e53e3e; text-align:center;"></div>
         </div>
     </div>
 
-    <h1>Catur vs AI</h1>
+    <!-- Queen Alert Overlay -->
+    <div id="queenAlertOverlay" class="modal-overlay">
+        <div class="alert-popup">
+            <h2 style="color:#e53e3e; margin-top:0;">⚠️ BAHAYA!</h2>
+            <p style="font-size:1.1em; margin: 15px 0;">Menteri Anda sedang diancam!</p>
+            <button id="closeAlertBtn" style="width:100%; background: #e53e3e;">OK, Saya Mengerti</button>
+        </div>
+    </div>
+
+    <h1>♟️ Catur AI Fun</h1>
 
     <div class="container">
         <div class="board-container">
@@ -265,14 +378,14 @@
             <div id="advisorPanel" class="hint-box" style="display:none; position:relative; margin-top:10px; width:100%;">
                 
                 <!-- Auto-Hint Checkbox -->
-                <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                    <input type="checkbox" id="cbAutoHint">
-                    <label for="cbAutoHint" style="font-weight:normal; font-size:0.9em; margin:0; cursor:pointer;">Selalu Tampilkan Saran & Update</label>
+                <div class="checkbox-wrapper" style="margin-bottom: 10px;">
+                    <input type="checkbox" id="cbAutoHint" checked>
+                    <span>Selalu Tampilkan Saran & Update</span>
                 </div>
                 
                 <!-- Fixed Height Hint Area -->
-                <div id="hintArea" style="min-height: 90px; background: white; padding: 5px; border:1px solid #ddd; border-radius: 4px; visibility: hidden;">
-                    <strong id="hintTitle" style="display:block; border-bottom:1px solid #eee; margin-bottom:5px; font-size:0.9em;">Opsi Langkah:</strong>
+                <div id="hintArea" style="min-height: 90px; background: white; padding: 10px; border:2px solid #bee3f8; border-radius: 8px; visibility: hidden;">
+                    <strong id="hintTitle" style="display:block; border-bottom:1px solid #e2e8f0; margin-bottom:5px; font-size:0.9em; color:#2b6cb0;">Opsi Langkah:</strong>
                     <div id="hintList"></div>
                 </div>
             </div>
@@ -281,52 +394,58 @@
         <div class="sidebar-right">
             
             <div class="status-panel">
-                <div>User: <strong id="displayUsername">-</strong></div>
+                <div>Pemain: <strong id="displayUsername" style="color:#553c9a;">-</strong></div>
                 <div>Rating (ELO): <span id="playerElo" class="elo-display">...</span></div>
                 <div id="gameStatus" class="game-status">Siap bermain?</div>
             </div>
 
             <div class="controls">
                 <div class="control-group">
-                    <label for="aiDifficulty">Tingkat Kesulitan (AI ELO)</label>
+                    <label for="aiDifficulty">Level AI</label>
                     <input type="number" id="aiDifficulty" value="1200" min="400" max="3000" step="50">
                 </div>
 
                 <div class="control-group">
-                    <label for="playerColor">Pilih Warna</label>
+                    <label for="playerColor">Warna Bidak</label>
                     <select id="playerColor">
-                        <option value="white">Putih (Jalan Duluan)</option>
+                        <option value="white">Putih (Jalan Dulu)</option>
                         <option value="black">Hitam</option>
                         <option value="random">Acak</option>
                     </select>
                 </div>
 
-                <button id="startBtn">Mulai Game Baru</button>
+                <button id="startBtn">🔥 Mulai Game!</button>
+            </div>
+
+            <!-- Static Threat/Opportunity Panel (Moved Above History) -->
+            <div id="threatAlert" class="panel-box" style="display: block;">
+                <div id="playerThreatSection">
+                    <strong style="color:#c53030;">⚠️ Ancaman (Bahaya)</strong>
+                    <ul id="threatListPlayer" style="margin: 5px 0; padding-left: 20px; list-style-type: none; padding:0; min-height: 75px;">
+                        <li class="threat-slot" style="padding:2px 0; border-bottom:1px solid #edf2f7;">&nbsp;</li>
+                        <li class="threat-slot" style="padding:2px 0; border-bottom:1px solid #edf2f7;">&nbsp;</li>
+                        <li class="threat-slot" style="padding:2px 0; border-bottom:1px solid #edf2f7;">&nbsp;</li>
+                    </ul>
+                </div>
+                <div id="aiThreatSection" style="margin-top: 10px; padding-top: 5px; border-top: 2px dashed #e2e8f0;">
+                    <strong style="color:#2f855a;">⚔️ Peluang (Serang)</strong>
+                    <ul id="threatListAI" style="margin: 5px 0; padding-left: 20px; list-style-type: none; padding:0; min-height: 75px;">
+                        <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #edf2f7;">&nbsp;</li>
+                        <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #edf2f7;">&nbsp;</li>
+                        <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #edf2f7;">&nbsp;</li>
+                    </ul>
+                </div>
             </div>
 
             <div class="panel-box">
-                <div class="panel-title">Riwayat Langkah</div>
+                <div class="panel-title">
+                    <span>📜 Riwayat Langkah</span>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="cbShowHistory" checked>
+                        <span style="font-size:0.8em; font-weight:normal;">Tampilkan</span>
+                    </div>
+                </div>
                 <div id="pgnContainer" class="pgn-container"></div>
-            </div>
-
-            <!-- Static Threat/Opportunity Panel -->
-            <div id="threatAlert" class="panel-box" style="display: block;">
-                <div id="playerThreatSection">
-                    <strong style="color:#721c24;">⚠️ Ancaman (Bahaya)</strong>
-                    <ul id="threatListPlayer" style="margin: 5px 0; padding-left: 20px; list-style-type: none; padding:0; min-height: 75px;">
-                        <li class="threat-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
-                        <li class="threat-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
-                        <li class="threat-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
-                    </ul>
-                </div>
-                <div id="aiThreatSection" style="margin-top: 10px; padding-top: 5px; border-top: 1px solid #ddd;">
-                    <strong style="color:#155724;">⚔️ Peluang (Serang)</strong>
-                    <ul id="threatListAI" style="margin: 5px 0; padding-left: 20px; list-style-type: none; padding:0; min-height: 75px;">
-                        <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
-                        <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
-                        <li class="opp-slot" style="padding:2px 0; border-bottom:1px solid #eee;">&nbsp;</li>
-                    </ul>
-                </div>
             </div>
             
         </div>
@@ -357,6 +476,9 @@
         var currentUser = null;
         var currentElo = 800;
         var useAdvisor = true; // Always active
+        
+        // Track Queen Alert to prevent spamming per turn
+        var queenAlertShownForTurn = -1;
 
         var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBIJBWZ0iPlHE5qkO8f1YDmAwnpqrE7knm9n6LHT_7hGGDXFxOyDg_vpM4VpjT3tiu/exec';
 
@@ -434,7 +556,7 @@
                         var $list = $('#hintList');
                         var $item = $list.find('#hint-' + rank);
                         if ($item.length === 0) {
-                            $list.append('<div id="hint-' + rank + '" style="display:flex; align-items:center; margin-bottom:4px;">' + rank + '. ' + formatted + '</div>');
+                            $list.append('<div id="hint-' + rank + '" style="display:flex; align-items:center; margin-bottom:4px; font-weight:600; color:#2d3748;">' + rank + '. ' + formatted + '</div>');
                         } else {
                             $item.html(rank + '. ' + formatted);
                         }
@@ -489,34 +611,45 @@
         }
 
         // --- Hint / Advisor Logic ---
-        
-        // Shared Function to request analysis
         function updateHints() {
              var fen = game.fen();
-             $('#hintList').empty(); // Clear old hints
+             $('#hintList').empty(); 
              
              // Update Header
              var turnColor = (game.turn() === 'w') ? 'Putih' : 'Hitam';
              $('#hintTitle').text('Opsi Langkah (' + turnColor + '):');
              
              advisorStockfish.postMessage('stop');
-             advisorStockfish.postMessage('setoption name Skill Level value 20'); // Max strength for hints
-             advisorStockfish.postMessage('setoption name MultiPV value 3'); // Top 3
+             advisorStockfish.postMessage('setoption name Skill Level value 20'); 
+             advisorStockfish.postMessage('setoption name MultiPV value 3'); 
              advisorStockfish.postMessage('position fen ' + fen);
              advisorStockfish.postMessage('go depth 12');
         }
 
-        // Checkbox Listener
+        // Auto-Hint Checkbox Listener
         $('#cbAutoHint').on('change', function() {
             var isChecked = $(this).is(':checked');
             if (isChecked) {
-                // Enabled: Update immediately
                 updateHints();
             } else {
-                // Disabled: Hide area
                 $('#hintArea').css('visibility', 'hidden');
                 advisorStockfish.postMessage('stop');
             }
+        });
+
+        // History Checkbox Listener
+        $('#cbShowHistory').on('change', function() {
+            var isChecked = $(this).is(':checked');
+            if (isChecked) {
+                $('#pgnContainer').show();
+            } else {
+                $('#pgnContainer').hide();
+            }
+        });
+        
+        // Alert Modal Listener
+        $('#closeAlertBtn').on('click', function() {
+            $('#queenAlertOverlay').fadeOut();
         });
 
         function formatMoveHTML(uciMove) {
@@ -542,6 +675,9 @@
                 (playerColor === 'b' && piece.search(/^w/) !== -1)) {
                  return false;
             }
+            // Block interaction if Alert is visible
+            if ($('#queenAlertOverlay').is(':visible')) return false;
+
             removeHighlights('highlight-legal');
             var moves = game.moves({ square: source, verbose: true });
             for (var i = 0; i < moves.length; i++) {
@@ -584,23 +720,21 @@
         function updateCapturedPieces() {
             var history = game.history({ verbose: true });
             
-            var capturedWhite = []; // Pieces belonging to White that were captured
-            var capturedBlack = []; // Pieces belonging to Black that were captured
+            var capturedWhite = []; 
+            var capturedBlack = []; 
             
             for (var i=0; i<history.length; i++) {
                 var m = history[i];
                 if (m.flags.includes('c') || m.flags.includes('e')) {
                     if (m.color === 'w') {
-                        // White moved and captured Black piece
                         capturedBlack.push(m.captured); 
                     } else {
-                        // Black moved and captured White piece
                         capturedWhite.push(m.captured);
                     }
                 }
             }
             
-            var orientation = board.orientation(); // 'white' or 'black'
+            var orientation = board.orientation(); 
             
             if (orientation === 'white') {
                 renderCaptured('#capturedTop', capturedWhite, 'w'); 
@@ -661,7 +795,6 @@
         }
 
         function runThreatAnalysis() {
-            // Always show panel
             $('#advisorPanel').show();
             $('#threatAlert').show();
             
@@ -677,7 +810,8 @@
             var boardState = game.board();
             var opponentColor = (playerColor === 'w') ? 'b' : 'w';
             
-            var playChime = false; // Flag to play sound
+            var playChime = false; 
+            var queenThreatened = false;
 
             for(var r=0; r<8; r++) {
                 for(var c=0; c<8; c++) {
@@ -687,10 +821,6 @@
                         if (piece.color === playerColor) {
                             var attackers = getAttackers(currentFen, sq, opponentColor);
                             if (attackers.length > 0) {
-                                // Logic for Chime Sound: 
-                                // 1. Threat to Queen 
-                                // 2. Threat to any Undefended piece
-                                
                                 var minAttackerVal = 999;
                                 var minAttackerType = '';
                                 var attackerSquare = '';
@@ -703,14 +833,13 @@
                                 var defenderType = getRecapturer(currentFen, attackerSquare, sq);
 
                                 if (!defenderType) {
-                                    // Undefended -> CHIME
                                     playChime = true;
                                     playerThreats.push({val: 100, text: "⚠️ " + pieceName + " di " + sq + " GRATIS ditangkap " + attackerName + "! (analisis awal)"});
+                                    if (piece.type === 'q') queenThreatened = true;
                                 } else {
-                                    // Defended
                                     if (piece.type === 'q') {
-                                        // Threat to Queen (Defended) -> CHIME
                                         playChime = true;
+                                        queenThreatened = true;
                                     }
                                     var myVal = getPieceValue(piece.type);
                                     var attVal = getPieceValue(minAttackerType);
@@ -749,9 +878,17 @@
                 }
             }
             
-            // Only play chime if it's Player's turn (i.e. opponent just moved creating the threat)
-            if (playChime && game.turn() === playerColor && !game.in_checkmate()) {
-                playSound('chime');
+            // Only play sound/show modal if it's Player's turn
+            if (game.turn() === playerColor && !game.in_checkmate()) {
+                if (playChime) playSound('chime');
+                
+                // Show Queen Alert Modal if not already shown for this turn
+                // Use move history count to identify "Turn"
+                var currentMoveCount = game.history().length;
+                if (queenThreatened && queenAlertShownForTurn !== currentMoveCount) {
+                    $('#queenAlertOverlay').css('display', 'flex').hide().fadeIn();
+                    queenAlertShownForTurn = currentMoveCount;
+                }
             }
 
             function renderFixedList(list, selector, color) {
@@ -761,12 +898,12 @@
                 for(var i=0; i<3; i++) {
                     var content = "&nbsp;";
                     if (i < list.length) content = list[i].text;
-                    var style = "padding:2px 0; border-bottom:1px solid #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85em; color: " + color + ";";
+                    var style = "padding:2px 0; border-bottom:1px solid #edf2f7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85em; color: " + color + ";";
                     $ul.append('<li style="' + style + '">' + content + '</li>');
                 }
             }
-            renderFixedList(playerThreats, '#threatListPlayer', '#721c24'); 
-            renderFixedList(aiThreats, '#threatListAI', '#155724'); 
+            renderFixedList(playerThreats, '#threatListPlayer', '#742a2a'); 
+            renderFixedList(aiThreats, '#threatListAI', '#22543d'); 
         }
         
         function getPieceName(char) {
@@ -795,7 +932,6 @@
             updateHighlights(game.history({ verbose: true }));
             runThreatAnalysis();
             
-            // Auto Hint Logic
             if ($('#cbAutoHint').is(':checked')) {
                 updateHints();
             }
@@ -881,7 +1017,7 @@
                 if (cloudElo) currentElo = cloudElo;
                 else {
                     var local = localStorage.getItem('chessPlayerElo_' + username);
-                    currentElo = local ? parseInt(local) : (initElo || 800);
+                    currentElo = local ? parseInt(local) : (initElo || 500); // Default 500
                     syncEloToSheet(username, currentElo);
                 }
                 currentUser = username;
@@ -889,7 +1025,7 @@
                 $('#displayUsername').text(currentUser);
                 updateEloDisplay();
                 $('#loginOverlay').fadeOut();
-                if (useAdvisor) $('.sidebar-right').append('<div style="font-size:0.8em; color:green;">* Advisor Aktif</div>');
+                if (useAdvisor) $('.sidebar-right').append('<div style="font-size:0.8em; color:green; text-align:center;">* Advisor Aktif</div>');
             });
         });
 
@@ -904,12 +1040,16 @@
             board.orientation(playerColor === 'w' ? 'white' : 'black');
             board.position('start');
             gameActive = true;
+            queenAlertShownForTurn = -1; // Reset
             
             $('#pgnContainer').empty();
-            $('#threatAlert').hide();
-            // Hints reset
+            $('#threatAlert').show(); // Ensure visible
             $('#hintList').empty();
+            
+            // Sync UI states
             if (!$('#cbAutoHint').is(':checked')) $('#hintArea').css('visibility', 'hidden');
+            if ($('#cbShowHistory').is(':checked')) $('#pgnContainer').show();
+            else $('#pgnContainer').hide();
 
             removeHighlights('highlight-last');
             removeHighlights('highlight-legal');
@@ -922,7 +1062,7 @@
 
         $(window).resize(board.resize);
         setTimeout(board.resize, 200);
-        console.log("Game System Ready (Auto-Hint Enabled).");
+        console.log("Game System Ready (Teen UI Updated).");
     </script>
 </body>
 </html>
