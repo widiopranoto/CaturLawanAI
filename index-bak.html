@@ -311,8 +311,15 @@
                 flex-direction: row;
                 align-items: flex-start;
             }
-            .board-container { flex: 0 0 400px; }
-            .sidebar-right { flex: 1; padding-left: 20px; }
+            
+            .board-container {
+                flex: 0 0 400px;
+            }
+
+            .sidebar-right {
+                flex: 1;
+                padding-left: 20px;
+            }
         }
         
         /* Checkbox Custom Style */
@@ -322,9 +329,23 @@
             gap: 8px;
             cursor: pointer;
         }
-        .checkbox-wrapper input { width: auto; cursor: pointer; }
-        .checkbox-wrapper span { font-size: 0.9em; color: #4a5568; font-weight: 600; }
-        .hint-reason { font-size: 0.85em; color: #718096; margin-left: 5px; font-style: italic; }
+        .checkbox-wrapper input {
+            width: auto;
+            cursor: pointer;
+        }
+        .checkbox-wrapper span {
+            font-size: 0.9em;
+            color: #4a5568;
+            font-weight: 600;
+        }
+        
+        /* Hint Item Reason Style */
+        .hint-reason {
+            font-size: 0.85em;
+            color: #718096;
+            margin-left: 5px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -377,7 +398,7 @@
 
     <div class="container">
         <div class="board-container">
-            <!-- Top Panel: Captured by Opponent -->
+            <!-- Top Panel: Captured by Opponent (Depends on Orientation) -->
             <div id="capturedTop" class="captured-pieces"></div>
             <div id="board"></div>
             <div id="capturedBottom" class="captured-pieces"></div>
@@ -425,7 +446,7 @@
                 <button id="startBtn">🔥 Mulai Game!</button>
             </div>
 
-            <!-- Static Threat/Opportunity Panel -->
+            <!-- Static Threat/Opportunity Panel (Moved Above History) -->
             <div id="threatAlert" class="panel-box" style="display: block;">
                 <div id="playerThreatSection">
                     <strong style="color:#c53030;">⚠️ Ancaman (Bahaya)</strong>
@@ -459,7 +480,7 @@
         </div>
     </div>
     
-    <!-- Audio Elements -->
+    <!-- Audio Elements (Restored) -->
     <audio id="sndStart" src="sounds/start.wav"></audio>
     <audio id="sndOn" src="sounds/on.wav"></audio>
     <audio id="sndAlert" src="sounds/alert.wav"></audio>
@@ -623,7 +644,7 @@
             if (move.flags.includes('p')) reasons.push("Promosi bidak");
             
             // 4. Castling
-            if (move.san.includes('O-O')) reasons.push("Rokade");
+            if (move.san.includes('O-O')) reasons.push("Rokade (amankan Raja)");
             
             // 5. Score Context
             if (scoreType === 'mate') {
@@ -638,7 +659,7 @@
             
             if (reasons.length === 0) {
                 // Fallbacks
-                if (move.piece === 'p') reasons.push("Kontrol petak");
+                if (move.piece === 'p') reasons.push("Kontrol petak / struktur");
                 else if (['n','b'].includes(move.piece)) reasons.push("Pengembangan perwira");
                 else if (move.piece === 'r') reasons.push("Kontrol lajur");
                 else if (move.piece === 'q') reasons.push("Meningkatkan serangan");
@@ -780,6 +801,15 @@
             } else {
                 handleGameOver();
             }
+        }
+
+        function handleMoveSound(move) {
+            if (game.game_over()) return; 
+            var isCapture = move.flags.includes('c') || move.flags.includes('e');
+            if (game.in_checkmate()) { } 
+            else if (isCapture) playSound('boom');
+            else if (game.in_check()) playSound('alert');
+            else playSound('on');
         }
 
         function onSnapEnd () {
@@ -1080,9 +1110,6 @@
             if (!username) { $('#loginStatus').text("Username harus diisi!"); return; }
             $('#loginBtn').prop('disabled', true).text('Memuat...');
             
-            // Unlock Audio Context on user interaction
-            playSound('on'); // Mock unlock
-            
             fetchUserElo(username).then(function(cloudElo) {
                 if (cloudElo) currentElo = cloudElo;
                 else {
@@ -1102,7 +1129,6 @@
         // Start Game
         $('#startBtn').on('click', function() {
             if (!currentUser) { alert("Silakan login (refresh halaman) terlebih dahulu."); return; }
-            
             var colorSelection = $('#playerColor').val();
             if (colorSelection === 'random') playerColor = Math.random() < 0.5 ? 'w' : 'b';
             else playerColor = (colorSelection === 'white') ? 'w' : 'b';
@@ -1132,7 +1158,7 @@
 
         $(window).resize(board.resize);
         setTimeout(board.resize, 200);
-        console.log("Game System Ready (Reverted Audio/Colors/Modes).");
+        console.log("Game System Ready (Audio Restored to Tag).");
     </script>
 </body>
 </html>
