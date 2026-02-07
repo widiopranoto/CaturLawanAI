@@ -386,7 +386,7 @@
         </div>
     </div>
 
-    <h1>♟️ Catur AI Fun</h1>
+    <h1>♟️ Catur vs AI is Fun!</h1>
 
     <div class="container">
         <div class="board-container">
@@ -471,6 +471,14 @@
             
         </div>
     </div>
+    
+    <!-- Audio Elements (Restored) -->
+    <audio id="sndStart" src="sounds/start.wav"></audio>
+    <audio id="sndOn" src="sounds/on.wav"></audio>
+    <audio id="sndAlert" src="sounds/alert.wav"></audio>
+    <audio id="sndBoom" src="sounds/boom.wav"></audio>
+    <audio id="sndEnd" src="sounds/end.wav"></audio>
+    <audio id="sndChime" src="sounds/chime.wav"></audio>
 
     <script>
         // --- Globals ---
@@ -495,79 +503,29 @@
 
         var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBIJBWZ0iPlHE5qkO8f1YDmAwnpqrE7knm9n6LHT_7hGGDXFxOyDg_vpM4VpjT3tiu/exec';
 
-        // --- Audio Logic (Synth Fallback) ---
-        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        function resumeAudio() {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-        }
-
+        // --- Audio Logic (Restored to <audio> tags) ---
         function playSound(type) {
-            resumeAudio();
-            var osc = audioCtx.createOscillator();
-            var gainNode = audioCtx.createGain();
-            
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            
-            var now = audioCtx.currentTime;
-            
-            switch(type) {
-                case 'start':
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(440, now);
-                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
-                    gainNode.gain.setValueAtTime(0.3, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                    osc.start(now);
-                    osc.stop(now + 0.3);
-                    break;
-                case 'on': // Move
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(300, now);
-                    gainNode.gain.setValueAtTime(0.1, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                    osc.start(now);
-                    osc.stop(now + 0.1);
-                    break;
-                case 'boom': // Capture
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(150, now);
-                    osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
-                    gainNode.gain.setValueAtTime(0.2, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-                    osc.start(now);
-                    osc.stop(now + 0.2);
-                    break;
-                case 'alert': // Check
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(600, now);
-                    osc.frequency.linearRampToValueAtTime(400, now + 0.2);
-                    gainNode.gain.setValueAtTime(0.2, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-                    osc.start(now);
-                    osc.stop(now + 0.4);
-                    break;
-                case 'chime': // Threat
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(1200, now);
-                    gainNode.gain.setValueAtTime(0.1, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
-                    osc.start(now);
-                    osc.stop(now + 1.5);
-                    break;
-                case 'end': // Game Over
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(440, now);
-                    osc.frequency.linearRampToValueAtTime(220, now + 0.5);
-                    gainNode.gain.setValueAtTime(0.3, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
-                    osc.start(now);
-                    osc.stop(now + 1.0);
-                    break;
-            }
+            try {
+                var audio = null;
+                switch(type) {
+                    case 'start': audio = document.getElementById('sndStart'); break;
+                    case 'on': audio = document.getElementById('sndOn'); break;
+                    case 'alert': audio = document.getElementById('sndAlert'); break;
+                    case 'boom': audio = document.getElementById('sndBoom'); break;
+                    case 'end': audio = document.getElementById('sndEnd'); break;
+                    case 'chime': audio = document.getElementById('sndChime'); break;
+                }
+                if (audio) {
+                    audio.currentTime = 0;
+                    // Catch promise for blocked autoplay
+                    var playPromise = audio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(function(error) {
+                            console.log("Audio play blocked/failed: " + error);
+                        });
+                    }
+                }
+            } catch(e) { console.log('Audio error', e); }
         }
 
         // --- Highlights ---
@@ -719,7 +677,6 @@
         // Alert Modal Listener (X button)
         $('#closeAlertX').on('click', function() {
             $('#queenAlertOverlay').fadeOut();
-            resumeAudio();
         });
 
         function formatMoveHTML(uciMove) {
@@ -761,7 +718,6 @@
             var move = game.move({ from: source, to: target, promotion: 'q' });
             if (move === null) return 'snapback';
 
-            resumeAudio(); 
             handleMoveSound(move);
             updateStatus();
             updateCapturedPieces(); 
@@ -1080,9 +1036,6 @@
             if (!username) { $('#loginStatus').text("Username harus diisi!"); return; }
             $('#loginBtn').prop('disabled', true).text('Memuat...');
             
-            // Unlock Audio Context on user interaction
-            resumeAudio();
-            
             fetchUserElo(username).then(function(cloudElo) {
                 if (cloudElo) currentElo = cloudElo;
                 else {
@@ -1102,9 +1055,6 @@
         // Start Game
         $('#startBtn').on('click', function() {
             if (!currentUser) { alert("Silakan login (refresh halaman) terlebih dahulu."); return; }
-            
-            resumeAudio(); // Ensure audio context is ready
-            
             var colorSelection = $('#playerColor').val();
             if (colorSelection === 'random') playerColor = Math.random() < 0.5 ? 'w' : 'b';
             else playerColor = (colorSelection === 'white') ? 'w' : 'b';
@@ -1134,7 +1084,7 @@
 
         $(window).resize(board.resize);
         setTimeout(board.resize, 200);
-        console.log("Game System Ready (Audio Synth Enabled).");
+        console.log("Game System Ready (Audio Restored to Tag).");
     </script>
 </body>
 </html>
