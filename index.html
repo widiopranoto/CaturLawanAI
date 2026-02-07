@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Main Catur vs AI</title>
+    <title>Catur vs AI</title>
     
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♟️</text></svg>">
@@ -338,6 +338,14 @@
             color: #4a5568;
             font-weight: 600;
         }
+        
+        /* Hint Item Reason Style */
+        .hint-reason {
+            font-size: 0.85em;
+            color: #718096;
+            margin-left: 5px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -386,7 +394,7 @@
         </div>
     </div>
 
-    <h1>♟️ Catur vs AI is Fun!</h1>
+    <h1>♟️ Catur vs AI is Fun</h1>
 
     <div class="container">
         <div class="board-container">
@@ -401,7 +409,7 @@
                 <!-- Auto-Hint Checkbox -->
                 <div class="checkbox-wrapper" style="margin-bottom: 10px;">
                     <input type="checkbox" id="cbAutoHint" checked>
-                    <span>Selalu Tampilkan Saran & Update</span>
+                    <span>Tampilkan Saran & Update</span>
                 </div>
                 
                 <!-- Fixed Height Hint Area -->
@@ -572,6 +580,12 @@
                 
                 // Handle MultiPV (Hints)
                 if (line.indexOf('pv') > -1 && line.indexOf('info') > -1) {
+                    // Extract Score info first to determine reason
+                    // cp 35, mate 2 etc.
+                    var scoreMatch = line.match(/score (cp|mate) (-?\d+)/);
+                    var scoreType = scoreMatch ? scoreMatch[1] : 'cp';
+                    var scoreVal = scoreMatch ? parseInt(scoreMatch[2]) : 0;
+                    
                     var multipvMatch = line.match(/multipv (\d+)/);
                     var pvMatch = line.match(/ pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
                     
@@ -580,12 +594,19 @@
                         var bestMove = pvMatch[1];
                         var formatted = formatMoveHTML(bestMove);
                         
+                        // Generate Reason based on Move and Score
+                        var reason = getHintReason(bestMove, scoreType, scoreVal);
+                        
                         var $list = $('#hintList');
                         var $item = $list.find('#hint-' + rank);
+                        var htmlContent = '<div id="hint-' + rank + '" style="display:flex; align-items:center; margin-bottom:4px; font-weight:600; color:#2d3748;">' + 
+                                          rank + '. ' + formatted + 
+                                          '<span class="hint-reason">(' + reason + ')</span></div>';
+                                          
                         if ($item.length === 0) {
-                            $list.append('<div id="hint-' + rank + '" style="display:flex; align-items:center; margin-bottom:4px; font-weight:600; color:#2d3748;">' + rank + '. ' + formatted + '</div>');
+                            $list.append(htmlContent);
                         } else {
-                            $item.html(rank + '. ' + formatted);
+                            $item.html(rank + '. ' + formatted + '<span class="hint-reason">(' + reason + ')</span>');
                         }
                         
                         $('#hintArea').css('visibility', 'visible');
@@ -595,6 +616,59 @@
             advisorStockfish.postMessage('uci');
         }
         initStockfishWorkers();
+        
+        // --- Hint Reason Helper ---
+        function getHintReason(uciMove, scoreType, scoreVal) {
+            // Analyze the move on a temp board
+            var tempGame = new Chess(game.fen());
+            var from = uciMove.substring(0,2);
+            var to = uciMove.substring(2,4);
+            var move = tempGame.move({from: from, to: to, promotion: 'q'});
+            
+            if (!move) return "Langkah legal";
+            
+            var reasons = [];
+            
+            // 1. Check Mate/Check
+            if (move.san.includes('#')) return "Skakmat lawan!";
+            if (move.san.includes('+')) reasons.push("Skak Raja");
+            
+            // 2. Check Capture
+            if (move.flags.includes('c') || move.flags.includes('e')) {
+                var captured = getPieceName(move.captured || 'p'); // captured might be undefined if ep? no 'e' flag implies capture
+                if (move.flags.includes('e')) captured = "Pion";
+                reasons.push("Menangkap " + captured);
+            }
+            
+            // 3. Promotion
+            if (move.flags.includes('p')) reasons.push("Promosi bidak");
+            
+            // 4. Castling
+            if (move.san.includes('O-O')) reasons.push("Rokade (amankan Raja)");
+            
+            // 5. Score Context
+            if (scoreType === 'mate') {
+                if (scoreVal > 0) reasons.push("Menuju kemenangan");
+                else reasons.push("Bertahan dari skakmat");
+            } else {
+                // CP score (centipawns)
+                // If high positive score for active player
+                if (scoreVal > 200) reasons.push("Posisi dominan");
+                else if (scoreVal > 50) reasons.push("Keunggulan posisi");
+            }
+            
+            if (reasons.length === 0) {
+                // Fallbacks
+                if (move.piece === 'p') reasons.push("Kontrol petak / struktur");
+                else if (['n','b'].includes(move.piece)) reasons.push("Pengembangan perwira");
+                else if (move.piece === 'r') reasons.push("Kontrol lajur");
+                else if (move.piece === 'q') reasons.push("Meningkatkan serangan");
+                else if (move.piece === 'k') reasons.push("Langkah Raja");
+                else reasons.push("Langkah strategis");
+            }
+            
+            return reasons.join(", ");
+        }
 
         // --- Game AI Logic ---
         function makeAIMove() {
