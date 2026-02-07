@@ -165,19 +165,18 @@
             color: #718096;
         }
 
-        /* Modal Overlay (Generic) */
+        /* Modal Overlay */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.7);
             backdrop-filter: blur(5px);
-            display: none; /* Hidden by default */
+            display: none;
             justify-content: center;
             align-items: center;
             z-index: 1000;
         }
 
-        /* Login Box */
         .login-box {
             background: white;
             padding: 40px;
@@ -191,7 +190,6 @@
             overflow-y: auto;
         }
         
-        /* Alert Box (Queen) */
         .alert-popup {
             background: white;
             padding: 25px;
@@ -243,7 +241,6 @@
             padding: 2px 0;
         }
 
-        /* Sidebar Styles */
         .sidebar-right {
             width: 100%;
             display: flex;
@@ -281,15 +278,6 @@
             border: 1px solid #edf2f7;
         }
 
-        .alert-box {
-            color: #742a2a;
-            background-color: #fff5f5;
-            border-color: #feb2b2;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 0.95em;
-        }
-        
         .hint-box {
             background: linear-gradient(to right, #ebf8ff, #fff);
             border: 1px solid #bee3f8;
@@ -315,7 +303,6 @@
             .sidebar-right { flex: 1; padding-left: 20px; }
         }
         
-        /* Checkbox Custom Style */
         .checkbox-wrapper {
             display: flex;
             align-items: center;
@@ -335,8 +322,17 @@
             <h2 style="text-align:center; margin-bottom:10px; color:#4a5568;">🎮 Mulai Main!</h2>
             
             <div class="control-group">
-                <label for="usernameInput">Username Kerenmu</label>
+                <label for="usernameInput">Username</label>
                 <input type="text" id="usernameInput" placeholder="Misal: JagoanCatur123">
+            </div>
+
+            <!-- Game Mode Selector -->
+            <div class="control-group">
+                <label for="modeSelect">Pilih Mode</label>
+                <select id="modeSelect">
+                    <option value="PvAI">Pemain vs AI</option>
+                    <option value="AIvAI">AI vs AI</option>
+                </select>
             </div>
 
             <div class="control-group" id="eloInputGroup">
@@ -377,21 +373,17 @@
 
     <div class="container">
         <div class="board-container">
-            <!-- Top Panel: Captured by Opponent -->
+            <!-- Top Panel -->
             <div id="capturedTop" class="captured-pieces"></div>
             <div id="board"></div>
             <div id="capturedBottom" class="captured-pieces"></div>
             
-            <!-- Advisor Panel (Below Board) -->
+            <!-- Advisor Panel -->
             <div id="advisorPanel" class="hint-box" style="display:none; position:relative; margin-top:10px; width:100%;">
-                
-                <!-- Auto-Hint Checkbox -->
                 <div class="checkbox-wrapper" style="margin-bottom: 10px;">
                     <input type="checkbox" id="cbAutoHint" checked>
                     <span>Tampilkan Saran & Update</span>
                 </div>
-                
-                <!-- Fixed Height Hint Area -->
                 <div id="hintArea" style="min-height: 90px; background: white; padding: 10px; border:2px solid #bee3f8; border-radius: 8px; visibility: hidden;">
                     <strong id="hintTitle" style="display:block; border-bottom:1px solid #e2e8f0; margin-bottom:5px; font-size:0.9em; color:#2b6cb0;">Opsi Langkah:</strong>
                     <div id="hintList"></div>
@@ -402,30 +394,46 @@
         <div class="sidebar-right">
             
             <div class="status-panel">
+                <div>Mode: <strong id="displayMode" style="color:#553c9a;">...</strong></div>
                 <div>Pemain: <strong id="displayUsername" style="color:#553c9a;">-</strong></div>
                 <div>Rating (ELO): <span id="playerElo" class="elo-display">...</span></div>
                 <div id="gameStatus" class="game-status">Siap bermain?</div>
             </div>
 
             <div class="controls">
-                <div class="control-group">
-                    <label for="aiDifficulty">Level AI</label>
-                    <input type="number" id="aiDifficulty" value="1200" min="400" max="3000" step="50">
+                <!-- PvAI Controls -->
+                <div id="pvaiControls">
+                     <div class="control-group">
+                        <label for="aiDifficulty">Level AI (Lawan)</label>
+                        <input type="number" id="aiDifficulty" value="1200" min="400" max="3000" step="50">
+                    </div>
+    
+                    <div class="control-group">
+                        <label for="playerColor">Warna Bidak Anda</label>
+                        <select id="playerColor">
+                            <option value="white">Putih (Jalan Dulu)</option>
+                            <option value="black">Hitam</option>
+                            <option value="random">Acak</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="control-group">
-                    <label for="playerColor">Warna Bidak</label>
-                    <select id="playerColor">
-                        <option value="white">Putih (Jalan Dulu)</option>
-                        <option value="black">Hitam</option>
-                        <option value="random">Acak</option>
-                    </select>
+                <!-- AI v AI Controls -->
+                <div id="aivaiControls" style="display:none; width: 100%;">
+                    <div class="control-group" style="width:100%;">
+                        <label>Rating AI Putih</label>
+                        <input type="number" id="aiWhiteEloInput" value="1200" step="50" style="margin-bottom:10px;">
+                    </div>
+                    <div class="control-group" style="width:100%;">
+                        <label>Rating AI Hitam</label>
+                        <input type="number" id="aiBlackEloInput" value="1200" step="50">
+                    </div>
                 </div>
 
                 <button id="startBtn">🔥 Mulai Game!</button>
             </div>
 
-            <!-- Static Threat/Opportunity Panel -->
+            <!-- Threat Panel -->
             <div id="threatAlert" class="panel-box" style="display: block;">
                 <div id="playerThreatSection">
                     <strong style="color:#c53030;">⚠️ Ancaman (Bahaya)</strong>
@@ -468,29 +476,26 @@
     <audio id="sndChime" src="sounds/chime.wav"></audio>
 
     <script>
-        // --- Globals ---
+        // --- Global Variables ---
         var board = null;
         var game = new Chess();
-        var $status = $('#gameStatus');
-        var $pgnContainer = $('#pgnContainer');
         var playerColor = 'w';
+        var gameMode = 'PvAI'; // 'PvAI' or 'AIvAI'
+        var aiWhiteElo = 1200;
+        var aiBlackElo = 1200;
         
-        // Split Workers
         var gameStockfish = null; 
         var advisorStockfish = null;
-        
         var gameActive = false;
-        
         var currentUser = null;
         var currentElo = 800;
-        var useAdvisor = true; // Always active
-        
-        // Track Queen Alert to prevent spamming per turn
+        var useAdvisor = true;
         var queenAlertShownForTurn = -1;
 
         var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBIJBWZ0iPlHE5qkO8f1YDmAwnpqrE7knm9n6LHT_7hGGDXFxOyDg_vpM4VpjT3tiu/exec';
 
-        // --- Audio Logic (Restored to <audio> tags) ---
+        // --- Core Functions (Global Scope) ---
+
         function playSound(type) {
             try {
                 var audio = null;
@@ -504,67 +509,39 @@
                 }
                 if (audio) {
                     audio.currentTime = 0;
-                    // Catch promise for blocked autoplay
                     var playPromise = audio.play();
                     if (playPromise !== undefined) {
-                        playPromise.catch(function(error) {
-                            console.log("Audio play blocked/failed: " + error);
-                        });
+                        playPromise.catch(function(error) { console.log("Audio error/blocked: " + error); });
                     }
                 }
             } catch(e) { console.log('Audio error', e); }
         }
 
-        // --- Highlights ---
-        function removeHighlights(className) {
-            $('#board .square-55d63').removeClass(className);
-        }
+        function getPieceValue(type) { var values = {p:1, n:3, b:3, r:5, q:9, k:100}; return values[type] || 0; }
+        function getPieceName(char) { var names = { 'p': 'Pion', 'n': 'Kuda', 'b': 'Gajah', 'r': 'Benteng', 'q': 'Menteri', 'k': 'Raja' }; return names[char.toLowerCase()] || char; }
 
-        function highlightSquare(square, className) {
-            var $square = $('#board .square-' + square);
-            if ($square.length === 0) return;
-            $square.addClass(className);
-        }
-
-        function updateHighlights(history) {
-            removeHighlights('highlight-last');
-            if (history && history.length > 0) {
-                var lastMove = history[history.length - 1];
-                highlightSquare(lastMove.from, 'highlight-last');
-                highlightSquare(lastMove.to, 'highlight-last');
-            }
-        }
-
-        // --- Stockfish Init ---
+        // --- Stockfish ---
         function initStockfishWorkers() {
             var stockfishUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js';
             var blob = new Blob(["importScripts('" + stockfishUrl + "');"], {type: 'application/javascript'});
             var workerUrl = window.URL.createObjectURL(blob);
 
-            // 1. Game AI Worker
             gameStockfish = new Worker(workerUrl);
             gameStockfish.onmessage = function(event) {
                 var line = event.data;
-                // Handle Bestmove (AI Move)
                 if (line.indexOf('bestmove') > -1) {
                     handleAIBestMove(line);
                 }
             };
             gameStockfish.postMessage('uci');
 
-            // 2. Advisor Worker
             advisorStockfish = new Worker(workerUrl);
             advisorStockfish.onmessage = function(event) {
                 var line = event.data;
-                
-                // Handle MultiPV (Hints)
                 if (line.indexOf('pv') > -1 && line.indexOf('info') > -1) {
-                    // Extract Score info first to determine reason
-                    // cp 35, mate 2 etc.
                     var scoreMatch = line.match(/score (cp|mate) (-?\d+)/);
                     var scoreType = scoreMatch ? scoreMatch[1] : 'cp';
                     var scoreVal = scoreMatch ? parseInt(scoreMatch[2]) : 0;
-                    
                     var multipvMatch = line.match(/multipv (\d+)/);
                     var pvMatch = line.match(/ pv ([a-h][1-8][a-h][1-8][qrbn]?)/);
                     
@@ -572,92 +549,39 @@
                         var rank = parseInt(multipvMatch[1]);
                         var bestMove = pvMatch[1];
                         var formatted = formatMoveHTML(bestMove);
-                        
-                        // Generate Reason based on Move and Score
                         var reason = getHintReason(bestMove, scoreType, scoreVal);
-                        
                         var $list = $('#hintList');
                         var $item = $list.find('#hint-' + rank);
-                        var htmlContent = '<div id="hint-' + rank + '" style="display:flex; align-items:center; margin-bottom:4px; font-weight:600; color:#2d3748;">' + 
-                                          rank + '. ' + formatted + 
-                                          '<span class="hint-reason">(' + reason + ')</span></div>';
-                                          
-                        if ($item.length === 0) {
-                            $list.append(htmlContent);
-                        } else {
-                            $item.html(rank + '. ' + formatted + '<span class="hint-reason">(' + reason + ')</span>');
-                        }
-                        
+                        var htmlContent = '<div id="hint-' + rank + '" style="display:flex; align-items:center; margin-bottom:4px; font-weight:600; color:#2d3748;">' + rank + '. ' + formatted + '<span class="hint-reason">(' + reason + ')</span></div>';
+                        if ($item.length === 0) $list.append(htmlContent);
+                        else $item.html(rank + '. ' + formatted + '<span class="hint-reason">(' + reason + ')</span>');
                         $('#hintArea').css('visibility', 'visible');
                     }
                 }
             };
             advisorStockfish.postMessage('uci');
         }
-        initStockfishWorkers();
-        
-        // --- Hint Reason Helper ---
-        function getHintReason(uciMove, scoreType, scoreVal) {
-            // Analyze the move on a temp board
-            var tempGame = new Chess(game.fen());
-            var from = uciMove.substring(0,2);
-            var to = uciMove.substring(2,4);
-            var move = tempGame.move({from: from, to: to, promotion: 'q'});
-            
-            if (!move) return "Langkah legal";
-            
-            var reasons = [];
-            
-            // 1. Check Mate/Check
-            if (move.san.includes('#')) return "Skakmat lawan!";
-            if (move.san.includes('+')) reasons.push("Skak Raja");
-            
-            // 2. Check Capture
-            if (move.flags.includes('c') || move.flags.includes('e')) {
-                var captured = getPieceName(move.captured || 'p'); // captured might be undefined if ep? no 'e' flag implies capture
-                if (move.flags.includes('e')) captured = "Pion";
-                reasons.push("Menangkap " + captured);
-            }
-            
-            // 3. Promotion
-            if (move.flags.includes('p')) reasons.push("Promosi bidak");
-            
-            // 4. Castling
-            if (move.san.includes('O-O')) reasons.push("Rokade");
-            
-            // 5. Score Context
-            if (scoreType === 'mate') {
-                if (scoreVal > 0) reasons.push("Menuju kemenangan");
-                else reasons.push("Bertahan dari skakmat");
-            } else {
-                // CP score (centipawns)
-                // If high positive score for active player
-                if (scoreVal > 200) reasons.push("Posisi dominan");
-                else if (scoreVal > 50) reasons.push("Keunggulan posisi");
-            }
-            
-            if (reasons.length === 0) {
-                // Fallbacks
-                if (move.piece === 'p') reasons.push("Kontrol petak");
-                else if (['n','b'].includes(move.piece)) reasons.push("Pengembangan perwira");
-                else if (move.piece === 'r') reasons.push("Kontrol lajur");
-                else if (move.piece === 'q') reasons.push("Meningkatkan serangan");
-                else if (move.piece === 'k') reasons.push("Langkah Raja");
-                else reasons.push("Langkah strategis");
-            }
-            
-            return reasons.join(", ");
-        }
 
-        // --- Game AI Logic ---
         function makeAIMove() {
             if (game.game_over() || !gameActive) return;
             
+            var turn = game.turn();
             var fen = game.fen();
-            var elo = parseInt($('#aiDifficulty').val());
-            var skillLevel = Math.floor((elo - 400) / (2600 / 20));
-            if (skillLevel < 0) skillLevel = 0; 
-            if (skillLevel > 20) skillLevel = 20;
+            var eloToUse = 1200;
+            
+            // Determine if we should move
+            if (gameMode === 'PvAI') {
+                if (playerColor === 'w' && turn === 'w') return;
+                if (playerColor === 'b' && turn === 'b') return;
+                eloToUse = parseInt($('#aiDifficulty').val());
+            } else {
+                // AI vs AI
+                if (turn === 'w') eloToUse = aiWhiteElo;
+                else eloToUse = aiBlackElo;
+            }
+
+            var skillLevel = Math.floor((eloToUse - 400) / (2600 / 20));
+            if (skillLevel < 0) skillLevel = 0; if (skillLevel > 20) skillLevel = 20;
 
             gameStockfish.postMessage('stop'); 
             gameStockfish.postMessage('setoption name Skill Level value ' + skillLevel);
@@ -667,38 +591,181 @@
         }
 
         function handleAIBestMove(line) {
-            // Logic AI Main
+            // Check if it IS AI turn
             var turn = game.turn();
-            var aiColor = (playerColor === 'w') ? 'b' : 'w';
-            
-            if (turn === aiColor && gameActive) {
+            var isAITurn = false;
+            if (gameMode === 'AIvAI') isAITurn = true;
+            else {
+                if (playerColor === 'w' && turn === 'b') isAITurn = true;
+                if (playerColor === 'b' && turn === 'w') isAITurn = true;
+            }
+
+            if (isAITurn && gameActive) {
                 var match = line.match(/^bestmove ([a-h][1-8])([a-h][1-8])([qrbn])?/);
                 if (match) {
                     var from = match[1];
                     var to = match[2];
                     var promotion = match[3];
-                    
                     var move = game.move({ from: from, to: to, promotion: promotion || 'q' });
                     if (move) {
                         board.position(game.fen());
                         handleMoveSound(move);
                         updateStatus();
                         updateCapturedPieces();
-                        if (game.game_over()) handleGameOver();
+                        if (!game.game_over()) {
+                             if (gameMode === 'AIvAI') {
+                                 // Trigger next move with delay
+                                 setTimeout(makeAIMove, 1000);
+                             }
+                        } else {
+                            handleGameOver();
+                        }
                     }
                 }
             }
         }
+        
+        function handleMoveSound(move) {
+            if (game.in_check()) playSound('alert');
+            else if (move.flags.includes('c') || move.flags.includes('e')) playSound('boom');
+            else playSound('on');
+        }
+        
+        function handleGameOver() {
+             gameActive = false;
+             updateStatus();
+        }
 
-        // --- Hint / Advisor Logic ---
+        // --- Fetch ELO Global ---
+        function fetchUserElo(username) {
+            if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) {
+                var stored = localStorage.getItem('chessPlayerElo_' + username);
+                return Promise.resolve(stored ? parseInt(stored) : null);
+            }
+            return fetch(APPS_SCRIPT_URL + '?action=getElo&username=' + username)
+                .then(function(r) { return r.json(); })
+                .then(function(data) { return (data.status === 'found') ? parseInt(data.elo) : null; })
+                .catch(function(e) { return null; });
+        }
+        
+        function syncEloToSheet(username, elo) {
+            var payload = JSON.stringify({ username: username, elo: Math.round(elo) });
+            if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) return;
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST', mode: 'no-cors', cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                redirect: 'follow', body: payload
+            }).catch(function(e) { console.error("Sync Error:", e); });
+        }
+
+        // --- Helpers ---
+        function formatMoveHTML(uciMove) {
+            var from = uciMove.substring(0,2);
+            var to = uciMove.substring(2,4);
+            var tempGame = new Chess(game.fen());
+            var move = tempGame.move({from: from, to: to, promotion: 'q'});
+            if (!move) return uciMove;
+            var pieceType = move.piece; var pieceColor = move.color;
+            var imgUrl = 'https://chessboardjs.com/img/chesspieces/wikipedia/' + pieceColor + pieceType.toUpperCase() + '.png';
+            return '<img src="' + imgUrl + '" style="width:20px; height:20px; margin-right:4px;"> ' + move.san;
+        }
+
+        function getHintReason(uciMove, scoreType, scoreVal) {
+            var tempGame = new Chess(game.fen());
+            var from = uciMove.substring(0,2);
+            var to = uciMove.substring(2,4);
+            var move = tempGame.move({from: from, to: to, promotion: 'q'});
+            if (!move) return "Langkah legal";
+            var reasons = [];
+            if (move.san.includes('#')) return "Skakmat lawan!";
+            if (move.san.includes('+')) reasons.push("Skak Raja");
+            if (move.flags.includes('c') || move.flags.includes('e')) {
+                var captured = getPieceName(move.captured || 'p');
+                if (move.flags.includes('e')) captured = "Pion";
+                reasons.push("Menangkap " + captured);
+            }
+            if (move.flags.includes('p')) reasons.push("Promosi bidak");
+            if (scoreType === 'mate') { if (scoreVal > 0) reasons.push("Menuju kemenangan"); else reasons.push("Bertahan dari skakmat"); }
+            else { if (scoreVal > 200) reasons.push("Posisi dominan"); else if (scoreVal > 50) reasons.push("Keunggulan posisi"); }
+            return reasons.length > 0 ? reasons.join(", ") : "Langkah strategis";
+        }
+
+        function getRecapturer(fen, fromSquare, toSquare) { 
+            var tempGame = new Chess(); 
+            try { tempGame.load(fen); } catch(e) { return null; } 
+            var piece = tempGame.get(fromSquare); 
+            if (!piece) return null; 
+            var attackerColor = piece.color; 
+            var tokens = tempGame.fen().split(' '); 
+            tokens[1] = attackerColor; 
+            tempGame.load(tokens.join(' ')); 
+            var move = tempGame.move({from: fromSquare, to: toSquare, promotion: 'q'}); 
+            if (!move) return null; 
+            var victimMoves = tempGame.moves({verbose: true}); 
+            for (var i=0; i<victimMoves.length; i++) { if (victimMoves[i].to === toSquare) return victimMoves[i].piece; } 
+            return null; 
+        }
+
+        function getAttackers(fen, square, attackerColor) { 
+            var attackers = []; var tempGame = new Chess(); var tokens = fen.split(' '); tokens[1] = attackerColor; var tempFen = tokens.join(' '); 
+            try { tempGame.load(tempFen); } catch(e) { return []; } 
+            var moves = tempGame.moves({verbose: true}); 
+            for(var i=0; i<moves.length; i++) { if (moves[i].to === square) attackers.push({ from: moves[i].from, type: moves[i].piece }); } 
+            return attackers; 
+        }
+
+        function runThreatAnalysis() {
+            $('#advisorPanel').show(); $('#threatAlert').show();
+            var playerThreats = []; var aiThreats = [];
+            if (game.in_check()) { if (game.turn() === playerColor) playerThreats.push({val: 1000, text: "RAJA ANDA DISERANG!"}); else aiThreats.push({val: 1000, text: "RAJA LAWAN DISERANG!"}); }
+            
+            var currentFen = game.fen(); var boardState = game.board(); var opponentColor = (playerColor === 'w') ? 'b' : 'w';
+            var playChime = false; var queenThreatened = false;
+
+            for(var r=0; r<8; r++) { for(var c=0; c<8; c++) { var piece = boardState[r][c]; if (piece) { var sq = String.fromCharCode(97+c) + (8-r);
+                if (piece.color === playerColor) {
+                    var attackers = getAttackers(currentFen, sq, opponentColor);
+                    if (attackers.length > 0) {
+                        var minAttacker = attackers[0]; // Simplified for brevity
+                        var defender = getRecapturer(currentFen, minAttacker.from, sq);
+                        var pieceName = getPieceName(piece.type); var attName = getPieceName(minAttacker.type);
+                        if (!defender) { playChime = true; playerThreats.push({val: 100, text: "⚠️ " + pieceName + " GRATIS ditangkap " + attName}); if (piece.type === 'q') queenThreatened = true; }
+                        else { if (piece.type === 'q') { playChime = true; queenThreatened = true; } playerThreats.push({val: 10, text: pieceName + " diancam " + attName}); }
+                    }
+                }
+                if (piece.color === opponentColor) {
+                     var attackers = getAttackers(currentFen, sq, playerColor);
+                     if (attackers.length > 0) {
+                         var minAttacker = attackers[0]; 
+                         var defender = getRecapturer(currentFen, minAttacker.from, sq);
+                         var pieceName = getPieceName(piece.type);
+                         if (!defender) aiThreats.push({val: 100, text: "🔥 " + pieceName + " GRATIS ditangkap!"});
+                     }
+                }
+            }}}
+
+            if (gameMode === 'PvAI' && game.turn() === playerColor && !game.in_checkmate()) {
+                if (playChime) playSound('chime');
+                var currentMoveCount = game.history().length;
+                if (queenThreatened && queenAlertShownForTurn !== currentMoveCount) {
+                    $('#queenAlertOverlay').css('display', 'flex').hide().fadeIn();
+                    queenAlertShownForTurn = currentMoveCount;
+                }
+            }
+            
+            function renderList(list, id, color) { 
+                var $ul = $(id); $ul.empty(); list.sort((a,b) => b.val - a.val);
+                for(var i=0;i<3;i++) { var t = list[i]?list[i].text:'&nbsp;'; $ul.append('<li style="padding:2px 0; border-bottom:1px solid #eee; color:'+color+'">'+t+'</li>'); }
+            }
+            renderList(playerThreats, '#threatListPlayer', '#c53030');
+            renderList(aiThreats, '#threatListAI', '#2f855a');
+        }
+        
         function updateHints() {
              var fen = game.fen();
              $('#hintList').empty(); 
-             
-             // Update Header
              var turnColor = (game.turn() === 'w') ? 'Putih' : 'Hitam';
              $('#hintTitle').text('Opsi Langkah (' + turnColor + '):');
-             
              advisorStockfish.postMessage('stop');
              advisorStockfish.postMessage('setoption name Skill Level value 20'); 
              advisorStockfish.postMessage('setoption name MultiPV value 3'); 
@@ -706,47 +773,73 @@
              advisorStockfish.postMessage('go depth 12');
         }
 
-        // Auto-Hint Checkbox Listener
-        $('#cbAutoHint').on('change', function() {
-            var isChecked = $(this).is(':checked');
-            if (isChecked) {
-                updateHints();
-            } else {
-                $('#hintArea').css('visibility', 'hidden');
-                advisorStockfish.postMessage('stop');
-            }
-        });
-
-        // History Checkbox Listener
-        $('#cbShowHistory').on('change', function() {
-            var isChecked = $(this).is(':checked');
-            if (isChecked) {
-                $('#pgnContainer').show();
-            } else {
-                $('#pgnContainer').hide();
-            }
-        });
-        
-        // Alert Modal Listener (X button)
-        $('#closeAlertX').on('click', function() {
-            $('#queenAlertOverlay').fadeOut();
-        });
-
-        function formatMoveHTML(uciMove) {
-            var from = uciMove.substring(0,2);
-            var to = uciMove.substring(2,4);
-            var tempGame = new Chess(game.fen());
-            var move = tempGame.move({from: from, to: to, promotion: 'q'});
-            if (!move) return uciMove;
-            var pieceType = move.piece; 
-            var pieceColor = move.color;
-            var imgUrl = 'https://chessboardjs.com/img/chesspieces/wikipedia/' + pieceColor + pieceType.toUpperCase() + '.png';
-            return '<img src="' + imgUrl + '" style="width:20px; height:20px; margin-right:4px;"> ' + move.san;
+        function updateStatus() {
+            var status = ''; var moveColor = (game.turn() === 'b') ? 'Hitam' : 'Putih';
+            if (game.in_checkmate()) { status = 'Game Over, ' + moveColor + ' terkena skakmat.'; playSound('end'); }
+            else if (game.in_draw()) { status = 'Game Over, Remis.'; playSound('end'); }
+            else { status = 'Giliran ' + moveColor; if (game.in_check()) status += ' (SKAK!)'; }
+            
+            $('#gameStatus').html(status);
+            $('#pgnContainer').html(game.pgn({max_width:5, newline_char:'<br/>'}));
+            removeHighlights('highlight-last'); 
+            var hist = game.history({verbose:true});
+            if (hist.length > 0) { var last = hist[hist.length-1]; highlightSquare(last.from, 'highlight-last'); highlightSquare(last.to, 'highlight-last'); }
+            
+            updateCapturedPieces();
+            runThreatAnalysis();
+            if ($('#cbAutoHint').is(':checked')) updateHints();
         }
 
-        // --- Board Logic ---
+        function updateEloDisplay() { $('#playerElo').text(currentElo); }
+        
+        function removeHighlights(className) {
+            $('#board .square-55d63').removeClass(className);
+        }
+
+        function highlightSquare(square, className) {
+            var $square = $('#board .square-' + square);
+            if ($square.length === 0) return;
+            $square.addClass(className);
+        }
+        
+        function updateCapturedPieces() {
+            var history = game.history({ verbose: true });
+            var capturedWhite = []; var capturedBlack = []; 
+            for (var i=0; i<history.length; i++) {
+                var m = history[i];
+                if (m.flags.includes('c') || m.flags.includes('e')) {
+                    if (m.color === 'w') capturedBlack.push(m.captured); 
+                    else capturedWhite.push(m.captured);
+                }
+            }
+            var orientation = board.orientation(); 
+            if (orientation === 'white') {
+                renderCaptured('#capturedTop', capturedWhite, 'w'); 
+                renderCaptured('#capturedBottom', capturedBlack, 'b'); 
+            } else {
+                renderCaptured('#capturedTop', capturedBlack, 'b');
+                renderCaptured('#capturedBottom', capturedWhite, 'w');
+            }
+        }
+        
+        function renderCaptured(selector, pieces, colorPrefix) {
+            var $container = $(selector);
+            $container.empty();
+            var order = ['q','r','b','n','p'];
+            pieces.sort(function(a,b) { return order.indexOf(a) - order.indexOf(b); });
+            pieces.forEach(function(p) {
+                var imgUrl = 'https://chessboardjs.com/img/chesspieces/wikipedia/' + colorPrefix + p.toUpperCase() + '.png';
+                $container.append('<img src="' + imgUrl + '">');
+            });
+        }
+        
+        // --- Board Interaction Logic (Global) ---
         function onDragStart (source, piece, position, orientation) {
             if (game.game_over() || !gameActive) return false;
+            // AI vs AI -> No interaction
+            if (gameMode === 'AIvAI') return false;
+            
+            // Player vs AI
             if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
                 (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
                 return false;
@@ -787,352 +880,85 @@
             updateCapturedPieces();
         }
 
-        // --- Captured Pieces Logic ---
-        function updateCapturedPieces() {
-            var history = game.history({ verbose: true });
-            
-            var capturedWhite = []; 
-            var capturedBlack = []; 
-            
-            for (var i=0; i<history.length; i++) {
-                var m = history[i];
-                if (m.flags.includes('c') || m.flags.includes('e')) {
-                    if (m.color === 'w') {
-                        capturedBlack.push(m.captured); 
-                    } else {
-                        capturedWhite.push(m.captured);
-                    }
-                }
-            }
-            
-            var orientation = board.orientation(); 
-            
-            if (orientation === 'white') {
-                renderCaptured('#capturedTop', capturedWhite, 'w'); 
-                renderCaptured('#capturedBottom', capturedBlack, 'b'); 
-            } else {
-                renderCaptured('#capturedTop', capturedBlack, 'b');
-                renderCaptured('#capturedBottom', capturedWhite, 'w');
-            }
-        }
-        
-        function renderCaptured(selector, pieces, colorPrefix) {
-            var $container = $(selector);
-            $container.empty();
-            var order = ['q','r','b','n','p'];
-            pieces.sort(function(a,b) { return order.indexOf(a) - order.indexOf(b); });
-            pieces.forEach(function(p) {
-                var imgUrl = 'https://chessboardjs.com/img/chesspieces/wikipedia/' + colorPrefix + p.toUpperCase() + '.png';
-                $container.append('<img src="' + imgUrl + '">');
-            });
-        }
+        // --- jQuery Document Ready ---
+        $(function() {
+            // Initialize Board
+            var cfg = {
+                draggable: true,
+                position: 'start',
+                onDragStart: onDragStart,
+                onDrop: onDrop,
+                onSnapEnd: onSnapEnd,
+                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+            };
+            board = Chessboard('board', cfg);
+            $(window).resize(function(){ if(board) board.resize(); });
+            setTimeout(function(){ if(board) board.resize(); }, 200);
 
-        // --- Advisor & Analysis (Threats) ---
-        function getPieceValue(type) {
-            var values = {p:1, n:3, b:3, r:5, q:9, k:100};
-            return values[type] || 0;
-        }
+            initStockfishWorkers();
 
-        function getRecapturer(fen, fromSquare, toSquare) {
-            var tempGame = new Chess();
-            try { tempGame.load(fen); } catch(e) { return null; }
-            var piece = tempGame.get(fromSquare);
-            if (!piece) return null;
-            var attackerColor = piece.color;
-            var tokens = tempGame.fen().split(' ');
-            tokens[1] = attackerColor;
-            tempGame.load(tokens.join(' '));
-            var move = tempGame.move({from: fromSquare, to: toSquare, promotion: 'q'});
-            if (!move) return null; 
-            var victimMoves = tempGame.moves({verbose: true});
-            for (var i=0; i<victimMoves.length; i++) {
-                if (victimMoves[i].to === toSquare) return victimMoves[i].piece; 
-            }
-            return null;
-        }
+            // Event Listeners
+            $('#closeAlertX').on('click', function() { $('#queenAlertOverlay').fadeOut(); });
+            $('#cbAutoHint').on('change', function() { if($(this).is(':checked')) updateHints(); else { $('#hintArea').css('visibility','hidden'); advisorStockfish.postMessage('stop'); } });
+            $('#cbShowHistory').on('change', function() { $(this).is(':checked') ? $('#pgnContainer').show() : $('#pgnContainer').hide(); });
 
-        function getAttackers(fen, square, attackerColor) {
-            var attackers = [];
-            var tempGame = new Chess();
-            var tokens = fen.split(' ');
-            tokens[1] = attackerColor;
-            var tempFen = tokens.join(' ');
-            try { tempGame.load(tempFen); } catch(e) { return []; }
-            var moves = tempGame.moves({verbose: true});
-            for(var i=0; i<moves.length; i++) {
-                if (moves[i].to === square) attackers.push({ from: moves[i].from, type: moves[i].piece });
-            }
-            return attackers;
-        }
-
-        function runThreatAnalysis() {
-            $('#advisorPanel').show();
-            $('#threatAlert').show();
-            
-            var playerThreats = []; 
-            var aiThreats = []; 
-            
-            if (game.in_check()) {
-                if (game.turn() === playerColor) playerThreats.push({val: 1000, text: "⚠️ RAJA ANDA SEDANG DISERANG (SKAK)!"});
-                else aiThreats.push({val: 1000, text: "🔥 RAJA LAWAN SEDANG DISERANG (SKAK)!"});
-            }
-
-            var currentFen = game.fen();
-            var boardState = game.board();
-            var opponentColor = (playerColor === 'w') ? 'b' : 'w';
-            
-            var playChime = false; 
-            var queenThreatened = false;
-
-            for(var r=0; r<8; r++) {
-                for(var c=0; c<8; c++) {
-                    var piece = boardState[r][c];
-                    if (piece) {
-                        var sq = String.fromCharCode(97+c) + (8-r);
-                        if (piece.color === playerColor) {
-                            var attackers = getAttackers(currentFen, sq, opponentColor);
-                            if (attackers.length > 0) {
-                                var minAttackerVal = 999;
-                                var minAttackerType = '';
-                                var attackerSquare = '';
-                                attackers.forEach(function(a) {
-                                    var val = getPieceValue(a.type);
-                                    if (val < minAttackerVal) { minAttackerVal = val; minAttackerType = a.type; attackerSquare = a.from; }
-                                });
-                                var pieceName = getPieceName(piece.type);
-                                var attackerName = getPieceName(minAttackerType);
-                                var defenderType = getRecapturer(currentFen, attackerSquare, sq);
-
-                                if (!defenderType) {
-                                    playChime = true;
-                                    playerThreats.push({val: 100, text: "⚠️ " + pieceName + " di " + sq + " GRATIS ditangkap " + attackerName + "! (analisis awal)"});
-                                    if (piece.type === 'q') queenThreatened = true;
-                                } else {
-                                    if (piece.type === 'q') {
-                                        playChime = true;
-                                        queenThreatened = true;
-                                    }
-                                    var myVal = getPieceValue(piece.type);
-                                    var attVal = getPieceValue(minAttackerType);
-                                    var defenderName = getPieceName(defenderType);
-                                    if (attVal < myVal) playerThreats.push({val: 80, text: "⚠️ BAHAYA: " + pieceName + " ("+myVal+") diancam " + attackerName + " ("+attVal+") meski dilindungi " + defenderName + "."});
-                                    else playerThreats.push({val: 10, text: "🛡️ " + pieceName + " di " + sq + " diancam " + attackerName + ", tapi terlindungi " + defenderName + "."});
-                                }
-                            }
-                        }
-                        if (piece.color === opponentColor) {
-                            var attackers = getAttackers(currentFen, sq, playerColor);
-                            if (attackers.length > 0) {
-                                var minAttackerVal = 999;
-                                var minAttackerType = '';
-                                var attackerSquare = '';
-                                attackers.forEach(function(a) {
-                                    var val = getPieceValue(a.type);
-                                    if (val < minAttackerVal) { minAttackerVal = val; minAttackerType = a.type; attackerSquare = a.from; }
-                                });
-                                var pieceName = getPieceName(piece.type);
-                                var attackerName = getPieceName(minAttackerType); 
-                                var defenderType = getRecapturer(currentFen, attackerSquare, sq);
-
-                                if (!defenderType) {
-                                    aiThreats.push({val: 100, text: "🔥 " + pieceName + " lawan di " + sq + " GRATIS untuk ditangkap! (analisis awal)"});
-                                } else {
-                                    var enemyVal = getPieceValue(piece.type);
-                                    var myVal = getPieceValue(minAttackerType);
-                                    var defenderName = getPieceName(defenderType);
-                                    if (enemyVal > myVal) aiThreats.push({val: 90, text: "⚡ UNTUNG: Tukar " + attackerName + " ("+myVal+") dengan " + pieceName + " ("+enemyVal+") meski dijaga " + defenderName + "."});
-                                    else aiThreats.push({val: 10, text: "🛡️ " + pieceName + " lawan di " + sq + " bisa ditangkap " + attackerName + ", tapi terlindungi " + defenderName + "."});
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (game.turn() === playerColor && !game.in_checkmate()) {
-                if (playChime) playSound('chime');
+            $('#loginBtn').on('click', function() {
+                var user = $('#usernameInput').val();
+                if (!user) { $('#loginStatus').text("Username wajib!"); return; }
+                $('#loginBtn').prop('disabled', true).text("Memuat...");
                 
-                var currentMoveCount = game.history().length;
-                if (queenThreatened && queenAlertShownForTurn !== currentMoveCount) {
-                    $('#queenAlertOverlay').css('display', 'flex').hide().fadeIn();
-                    queenAlertShownForTurn = currentMoveCount;
+                gameMode = $('#modeSelect').val();
+                if (gameMode === 'AIvAI') {
+                    $('#displayMode').text("AI vs AI");
+                    $('#pvaiControls').hide(); $('#aivaiControls').show(); $('#playerEloContainer').hide();
+                } else {
+                    $('#displayMode').text("Pemain vs AI");
+                    $('#pvaiControls').show(); $('#aivaiControls').hide(); $('#playerEloContainer').show();
                 }
-            }
 
-            function renderFixedList(list, selector, color) {
-                list.sort(function(a,b) { return b.val - a.val; });
-                var $ul = $(selector);
-                $ul.empty();
-                for(var i=0; i<3; i++) {
-                    var content = "&nbsp;";
-                    if (i < list.length) content = list[i].text;
-                    var style = "padding:2px 0; border-bottom:1px solid #edf2f7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85em; color: " + color + ";";
-                    $ul.append('<li style="' + style + '">' + content + '</li>');
-                }
-            }
-            renderFixedList(playerThreats, '#threatListPlayer', '#742a2a'); 
-            renderFixedList(aiThreats, '#threatListAI', '#22543d'); 
-        }
-        
-        function getPieceName(char) {
-            var names = { 'p': 'Pion', 'n': 'Kuda', 'b': 'Gajah', 'r': 'Benteng', 'q': 'Menteri', 'k': 'Raja' };
-            return names[char.toLowerCase()] || char;
-        }
+                fetchUserElo(user).then(function(elo) {
+                     if(elo) currentElo = elo; 
+                     else { currentElo = parseInt($('#initialEloInput').val()) || 500; syncEloToSheet(user, currentElo); }
+                     currentUser = user;
+                     $('#displayUsername').text(user);
+                     updateEloDisplay();
+                     $('#loginOverlay').css('display','none');
+                     if(useAdvisor) $('.sidebar-right').append('<div style="font-size:0.8em; color:green; text-align:center;">* Advisor Aktif</div>');
+                });
+            });
 
-        function updateStatus () {
-            var status = '';
-            var moveColor = (game.turn() === 'b') ? 'Hitam' : 'Putih';
+            $('#startBtn').on('click', function() {
+                 if (!currentUser) { alert("Login dulu!"); return; }
+                 if (gameMode === 'AIvAI') {
+                     aiWhiteElo = parseInt($('#aiWhiteEloInput').val());
+                     aiBlackElo = parseInt($('#aiBlackEloInput').val());
+                 }
+                 
+                 var colorVal = $('#playerColor').val();
+                 if (gameMode === 'PvAI') {
+                     if (colorVal === 'random') playerColor = Math.random() < 0.5 ? 'w' : 'b';
+                     else playerColor = (colorVal === 'white') ? 'w' : 'b';
+                 } else {
+                     playerColor = 'spectator';
+                 }
 
-            if (game.in_checkmate()) {
-                status = 'Game Over, ' + moveColor + ' terkena skakmat.';
-                playSound('end');
-            } else if (game.in_draw()) {
-                status = 'Game Over, Remis (Draw).';
-                playSound('end');
-            } else {
-                status = 'Giliran ' + moveColor + ' melangkah';
-                if (game.in_check()) status += ', ' + moveColor + ' sedang di-skak!';
-            }
-
-            $status.html(status);
-            $pgnContainer.html(game.pgn({ max_width: 5, newline_char: '<br />' }));
-            
-            updateHighlights(game.history({ verbose: true }));
-            runThreatAnalysis();
-            
-            if ($('#cbAutoHint').is(':checked')) {
-                updateHints();
-            }
-        }
-
-        var config = {
-            draggable: true,
-            position: 'start',
-            onDragStart: onDragStart,
-            onDrop: onDrop,
-            onSnapEnd: onSnapEnd,
-            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-        }
-        
-        board = Chessboard('board', config);
-        setTimeout(board.resize, 200);
-        updateStatus();
-        $(window).resize(board.resize);
-
-        // --- ELO & Google Sheets ---
-        function updateEloDisplay() { $('#playerElo').text(currentElo); }
-        function calculateEloChange(playerElo, opponentElo, result) {
-            var K = 32; 
-            var expectedScore = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
-            return K * (result - expectedScore);
-        }
-        
-        function syncEloToSheet(username, elo) {
-            var payload = JSON.stringify({ username: username, elo: Math.round(elo) });
-            if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) return;
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST', mode: 'no-cors', cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
-                redirect: 'follow', body: payload
-            }).catch(e => console.error("Sync Error:", e));
-        }
-
-        function fetchUserElo(username) {
-            if (APPS_SCRIPT_URL.indexOf('REPLACE') !== -1) {
-                var stored = localStorage.getItem('chessPlayerElo_' + username);
-                return Promise.resolve(stored ? parseInt(stored) : null);
-            }
-            return fetch(APPS_SCRIPT_URL + '?action=getElo&username=' + username)
-                .then(r => r.json())
-                .then(data => (data.status === 'found') ? parseInt(data.elo) : null)
-                .catch(e => null);
-        }
-
-        function handleGameOver() {
-            gameActive = false;
-            var aiElo = parseInt($('#aiDifficulty').val());
-            var resultScore = 0.5; 
-            var resultText = "Remis.";
-
-            if (game.in_checkmate()) {
-                var loserColor = game.turn(); 
-                if (loserColor === playerColor) { resultScore = 0; resultText = "Anda Kalah!"; } 
-                else { resultScore = 1; resultText = "Anda Menang!"; }
-            } else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
-                resultScore = 0.5; resultText = "Remis (Draw).";
-            }
-
-            var eloChange = calculateEloChange(currentElo, aiElo, resultScore);
-            currentElo = Math.round(currentElo + eloChange);
-            updateEloDisplay();
-            localStorage.setItem('chessPlayerElo_' + currentUser, currentElo);
-            syncEloToSheet(currentUser, currentElo);
-            $status.html("<strong>GAME OVER:</strong> " + resultText + " Rating Anda: " + currentElo + " (" + (eloChange >= 0 ? "+" : "") + Math.round(eloChange) + ")");
-            alert("Permainan Selesai!\n" + resultText + "\nRating Baru: " + currentElo);
-        }
-
-        // --- Login Logic ---
-        $('#loginBtn').on('click', function() {
-            var username = $('#usernameInput').val().trim();
-            var initElo = parseInt($('#initialEloInput').val());
-            var advisor = true;
-
-            if (!username) { $('#loginStatus').text("Username harus diisi!"); return; }
-            $('#loginBtn').prop('disabled', true).text('Memuat...');
-            
-            // Unlock Audio Context on user interaction
-            playSound('on'); // Mock unlock
-            
-            fetchUserElo(username).then(function(cloudElo) {
-                if (cloudElo) currentElo = cloudElo;
-                else {
-                    var local = localStorage.getItem('chessPlayerElo_' + username);
-                    currentElo = local ? parseInt(local) : (initElo || 500); // Default 500
-                    syncEloToSheet(username, currentElo);
-                }
-                currentUser = username;
-                useAdvisor = advisor;
-                $('#displayUsername').text(currentUser);
-                updateEloDisplay();
-                $('#loginOverlay').fadeOut();
-                if (useAdvisor) $('.sidebar-right').append('<div style="font-size:0.8em; color:green; text-align:center;">* Advisor Aktif</div>');
+                 game.reset();
+                 board.orientation(playerColor === 'b' ? 'black' : 'white');
+                 board.position('start');
+                 gameActive = true;
+                 queenAlertShownForTurn = -1;
+                 
+                 $('#pgnContainer').empty(); $('#hintList').empty();
+                 updateStatus();
+                 
+                 if (gameMode === 'PvAI') {
+                     if (playerColor === 'b') setTimeout(makeAIMove, 500);
+                 } else {
+                     // AI vs AI start
+                     setTimeout(makeAIMove, 500);
+                 }
             });
         });
-
-        // Start Game
-        $('#startBtn').on('click', function() {
-            if (!currentUser) { alert("Silakan login (refresh halaman) terlebih dahulu."); return; }
-            
-            var colorSelection = $('#playerColor').val();
-            if (colorSelection === 'random') playerColor = Math.random() < 0.5 ? 'w' : 'b';
-            else playerColor = (colorSelection === 'white') ? 'w' : 'b';
-
-            game.reset();
-            board.orientation(playerColor === 'w' ? 'white' : 'black');
-            board.position('start');
-            gameActive = true;
-            queenAlertShownForTurn = -1; 
-            
-            $('#pgnContainer').empty();
-            $('#threatAlert').show(); 
-            $('#hintList').empty();
-            
-            if (!$('#cbAutoHint').is(':checked')) $('#hintArea').css('visibility', 'hidden');
-            if ($('#cbShowHistory').is(':checked')) $('#pgnContainer').show();
-            else $('#pgnContainer').hide();
-
-            removeHighlights('highlight-last');
-            removeHighlights('highlight-legal');
-            
-            updateStatus();
-            $status.html("Permainan dimulai! Anda bermain sebagai: " + (playerColor === 'w' ? 'Putih' : 'Hitam'));
-
-            if (playerColor === 'b') window.setTimeout(makeAIMove, 500);
-        });
-
-        $(window).resize(board.resize);
-        setTimeout(board.resize, 200);
-        console.log("Game System Ready (Reverted Audio/Colors/Modes).");
     </script>
 </body>
 </html>
