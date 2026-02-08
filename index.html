@@ -431,6 +431,7 @@
                 </div>
 
                 <button id="startBtn">🔥 Mulai Game!</button>
+                <button id="pauseBtn" style="display:none; background: linear-gradient(90deg, #ed8936 0%, #f6ad55 100%); width: 100%; margin-top: 10px;">⏸️ Jeda</button>
             </div>
 
             <!-- Threat Panel -->
@@ -491,6 +492,8 @@
         var currentElo = 800;
         var useAdvisor = true;
         var queenAlertShownForTurn = -1;
+        var gamePaused = false;
+        var aiMoveTimeout = null;
 
         var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBIJBWZ0iPlHE5qkO8f1YDmAwnpqrE7knm9n6LHT_7hGGDXFxOyDg_vpM4VpjT3tiu/exec';
 
@@ -614,8 +617,11 @@
                         updateCapturedPieces();
                         if (!game.game_over()) {
                              if (gameMode === 'AIvAI') {
-                                 // Trigger next move with delay
-                                 setTimeout(makeAIMove, 1000);
+                                 // Trigger next move with Human-like delay (1.5s - 4.5s)
+                                 var randomDelay = Math.floor(Math.random() * 3000) + 1500;
+                                 if (!gamePaused) {
+                                     aiMoveTimeout = setTimeout(makeAIMove, randomDelay);
+                                 }
                              }
                         } else {
                             handleGameOver();
@@ -927,11 +933,31 @@
                 });
             });
 
+            $('#pauseBtn').on('click', function() {
+                if (gamePaused) {
+                    gamePaused = false;
+                    $(this).html("⏸️ Jeda");
+                    if (gameActive && !game.game_over()) makeAIMove();
+                } else {
+                    gamePaused = true;
+                    $(this).html("▶️ Lanjut");
+                    if (aiMoveTimeout) clearTimeout(aiMoveTimeout);
+                }
+            });
+
             $('#startBtn').on('click', function() {
                  if (!currentUser) { alert("Login dulu!"); return; }
+                 
+                 gamePaused = false;
+                 if (aiMoveTimeout) clearTimeout(aiMoveTimeout);
+                 $('#pauseBtn').html("⏸️ Jeda");
+
                  if (gameMode === 'AIvAI') {
                      aiWhiteElo = parseInt($('#aiWhiteEloInput').val());
                      aiBlackElo = parseInt($('#aiBlackEloInput').val());
+                     $('#pauseBtn').show();
+                 } else {
+                     $('#pauseBtn').hide();
                  }
                  
                  var colorVal = $('#playerColor').val();
